@@ -333,33 +333,39 @@ let solution = null; // { base: CubeState, moves: [], posCount, fixCount }
 let solIdx = 0, playing = false, playTimer = null;
 
 let viewFit = 1;
+function viewMatrix() {
+  const d = Math.PI / 180;
+  return { sRX: Math.sin(viewRX * d), cRX: Math.cos(viewRX * d), sRY: Math.sin(viewRY * d), cRY: Math.cos(viewRY * d) };
+}
 function setViewTransform() {
   const w = $('#cubeWrap');
   w.style.transform = `rotateX(${viewRX}deg) rotateY(${viewRY}deg) scale(${viewFit})`;
   // Hide stickers facing away from the viewer in JS. Some mobile browsers
   // mis-handle backface-visibility inside preserve-3d and paint whole faces
   // dark, so visibility is decided here from the element's own matrix.
-  try {
-    const m = new DOMMatrix(`rotateX(${viewRX}deg) rotateY(${viewRY}deg)`);
-    for (const el of $$('#cube .sticker')) {
-      if (!el._n) continue;
-      const z = m.transformPoint({ x: el._n[0], y: el._n[1], z: el._n[2] }).z;
-      el.style.display = z > 0.001 ? '' : 'none';
-    }
-  } catch (e) { /* older engines: leave every sticker displayed */ }
+  const m = viewMatrix();
+  for (const el of $$('#cube .sticker')) {
+    if (!el._n) continue;
+    // z of the sticker normal after rotateX(viewRX) rotateY(viewRY), computed
+    // directly: DOMMatrix string parsing returns wrong matrices in some
+    // mobile WebKit builds, which hid whole faces or the entire cube.
+    const z = m.sRX * el._n[1] + m.cRX * (m.cRY * el._n[2] - m.sRY * el._n[0]);
+    el.style.display = z > 0.001 ? '' : 'none';
+  }
 }
 function analyticFit() {
   // First estimate: project the cube's 8 corners with the scene's perspective.
   try {
     const sc = $('#scene');
     const D = parseFloat(getComputedStyle(sc).perspective) || 1600;
-    const m = new DOMMatrix(`rotateX(${viewRX}deg) rotateY(${viewRY}deg)`);
+    const m = viewMatrix();
     let ex = 0, ey = 0;
     for (const cx of [-1.5, 1.5]) for (const cy of [-1.5, 1.5]) for (const cz of [-1.5, 1.5]) {
-      const p = m.transformPoint({ x: cx, y: cy, z: cz });
-      const s = D / (D - p.z * SS);
-      ex = Math.max(ex, Math.abs(p.x) * SS * s);
-      ey = Math.max(ey, Math.abs(p.y) * SS * s);
+      const x1 = m.cRY * cx + m.sRY * cz, z1 = -m.sRY * cx + m.cRY * cz;
+      const y2 = m.cRX * cy - m.sRX * z1, z2 = m.sRX * cy + m.cRX * z1;
+      const s = D / (D - z2 * SS);
+      ex = Math.max(ex, Math.abs(x1) * SS * s);
+      ey = Math.max(ey, Math.abs(y2) * SS * s);
     }
     return Math.min(1, (sc.clientWidth / 2) / ex, (sc.clientHeight / 2) / ey) * 0.99;
   } catch (e) { return 1; }
