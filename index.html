@@ -25,7 +25,7 @@
   .modebtn { flex: 1; max-width: 190px; padding: 9px 6px; font-size: 13.5px; border-radius: 9px; border: 1px solid #39445a; background: #1d2432; color: #cfd9e6; cursor: pointer; min-height: 42px; }
   .modebtn.active { background: #2b6cb0; border-color: #2b6cb0; color: #fff; font-weight: 700; }
   /* ---- 3D scene ---- */
-  #scene { width: min(94vw, 400px); height: min(94vw, 400px); margin: 4px auto; perspective: 1600px; touch-action: none; position: relative; }
+  #scene { width: min(94vw, 400px); height: min(94vw, 400px); margin: 4px auto; perspective: 950px; touch-action: none; position: relative; }
   #cubeWrap { width: 100%; height: 100%; position: absolute; transform-style: preserve-3d; }
   #cube, .layer3d { position: absolute; inset: 0; transform-style: preserve-3d; }
   .sticker { position: absolute; left: 50%; top: 50%; border-radius: 7px; overflow: hidden; box-shadow: inset 0 0 0 2px rgba(10,10,14,.85); background-color: #20242c; background-repeat: no-repeat; }
@@ -357,7 +357,7 @@ function analyticFit() {
   // First estimate: project the cube's 8 corners with the scene's perspective.
   try {
     const sc = $('#scene');
-    const D = parseFloat(getComputedStyle(sc).perspective) || 1600;
+    const D = parseFloat(getComputedStyle(sc).perspective) || 950;
     const m = viewMatrix();
     let ex = 0, ey = 0;
     for (const cx of [-1.5, 1.5]) for (const cy of [-1.5, 1.5]) for (const cz of [-1.5, 1.5]) {
