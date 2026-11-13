@@ -1,0 +1,945 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>秋葉原キューブパズル ソルバー</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; }
+  body { font-family: "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Noto Sans JP", sans-serif; background: #14181f; color: #eef1f5; }
+  header { padding: 10px 12px 4px; text-align: center; }
+  header h1 { font-size: 19px; margin: 0; letter-spacing: .04em; }
+  header p { margin: 2px 0 0; font-size: 12px; color: #9fb0c3; }
+  .tabs { display: flex; gap: 4px; padding: 8px 8px 0; position: sticky; top: 0; background: #14181f; z-index: 30; overflow-x: auto; }
+  .tabs button { flex: 1 1 0; min-width: 0; padding: 9px 1px; font-size: 12px; border: 1px solid #39445a; background: #1d2432; color: #cfd9e6; border-radius: 10px 10px 0 0; cursor: pointer; white-space: nowrap; }
+  .tabs button.active { background: #2b6cb0; border-color: #2b6cb0; color: #fff; font-weight: 700; }
+  main { padding: 10px 10px 40px; max-width: 600px; margin: 0 auto; }
+  section.tab { display: none; }
+  section.tab.active { display: block; }
+  /* ---- 3D scene ---- */
+  #scene { width: min(94vw, 400px); height: min(94vw, 400px); margin: 4px auto; perspective: 950px; touch-action: none; position: relative; }
+  #cubeWrap { width: 100%; height: 100%; position: absolute; transform-style: preserve-3d; }
+  #cube, .layer3d { position: absolute; inset: 0; transform-style: preserve-3d; }
+  .sticker { position: absolute; left: 50%; top: 50%; border-radius: 7px; box-shadow: inset 0 0 0 2px rgba(10,10,14,.85); background-color: #20242c; background-repeat: no-repeat; backface-visibility: hidden; }
+  .viewbtns, .btnrow { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin: 8px 0; }
+  button.btn { padding: 9px 12px; font-size: 14px; border-radius: 9px; border: 1px solid #39445a; background: #232c3e; color: #eef1f5; cursor: pointer; min-height: 42px; }
+  button.btn:active { transform: scale(.97); }
+  button.btn.primary { background: #2b6cb0; border-color: #2b6cb0; font-weight: 700; }
+  button.btn.warn { background: #744210; border-color: #975a16; }
+  button.btn:disabled { opacity: .45; }
+  .status { text-align: center; font-size: 13px; color: #a8e063; min-height: 18px; margin: 4px 0; }
+  .substatus { text-align: center; font-size: 12px; color: #9fb0c3; min-height: 16px; margin: 2px 0; }
+  /* move pad */
+  .pad { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 8px 0; }
+  .padgroup { background: #1a2130; border: 1px solid #2c3648; border-radius: 10px; padding: 6px; }
+  .padgroup .lab { font-size: 12px; color: #c8d4e4; text-align: center; margin-bottom: 5px; white-space: nowrap; }
+  .padgroup .row { display: flex; gap: 5px; }
+  .padgroup button { flex: 1; padding: 10px 0; font-size: 16px; border-radius: 8px; border: 1px solid #39445a; background: #28324a; color: #fff; cursor: pointer; min-height: 44px; }
+  /* solution */
+  #solPanel { margin-top: 10px; }
+  .solgroup { font-size: 13px; font-weight: 700; margin: 10px 0 4px; color: #ffd479; }
+  .chips { display: flex; flex-wrap: wrap; gap: 4px; }
+  .chip { padding: 5px 8px; font-size: 14px; border-radius: 7px; background: #232c3e; border: 1px solid #39445a; cursor: pointer; min-width: 40px; text-align: center; }
+  .chip.done { opacity: .38; }
+  .chip.now { background: #2b6cb0; border-color: #63b3ed; font-weight: 700; }
+  .playback { display: flex; gap: 6px; justify-content: center; align-items: center; flex-wrap: wrap; margin: 8px 0; }
+  .playback button { padding: 9px 13px; font-size: 15px; border-radius: 9px; border: 1px solid #39445a; background: #232c3e; color: #fff; cursor: pointer; min-height: 42px; }
+  select { font-size: 14px; padding: 8px; border-radius: 8px; background: #232c3e; color: #fff; border: 1px solid #39445a; }
+  /* ---- review grids (photo / manual) ---- */
+  .net { display: grid; grid-template-columns: repeat(4, auto); gap: 8px 6px; justify-content: center; margin: 10px 0; }
+  .net .blank { width: 1px; }
+  @media (max-width: 600px) {
+    .net { grid-template-columns: repeat(2, auto); }
+    .net .blank { display: none; }
+  }
+  .facegrid { position: relative; }
+  .facegrid .fname { font-size: 11px; text-align: center; color: #c8d4e4; margin-bottom: 3px; white-space: nowrap; }
+  .facegrid .fname .auto { color: #ffd479; font-weight: 700; }
+  .cells { display: grid; grid-template-columns: repeat(3, var(--cell)); gap: 2px; }
+  :root { --cell: min(11vw, 44px); }
+  .cell { width: var(--cell); height: var(--cell); border-radius: 4px; background: #232a38; border: 1px solid #39445a; position: relative; overflow: visible; cursor: pointer; }
+  .cell .tile { position: absolute; inset: 0; border-radius: 4px; background-repeat: no-repeat; }
+  .cell.empty { border-style: dashed; }
+  .cell .flag { position: absolute; left: 0; right: 0; bottom: -1px; font-size: 9px; line-height: 1.25; text-align: center; background: rgba(180,60,40,.92); color: #fff; border-radius: 0 0 4px 4px; z-index: 2; }
+  .cell .badge { position: absolute; top: 0; left: 0; font-size: 9px; background: rgba(0,0,0,.65); color: #ffd479; padding: 0 3px; border-radius: 4px 0 4px 0; z-index: 2; }
+  .cell.center .tile { box-shadow: inset 0 0 0 2px rgba(255,212,121,.55); }
+  .errors { background: #4a2320; border: 1px solid #9b2c2c; color: #ffd9d4; border-radius: 9px; padding: 8px 10px; font-size: 13px; margin: 8px 0; display: none; }
+  .okmsg { background: #22402a; border: 1px solid #2f855a; color: #c6f6d5; border-radius: 9px; padding: 8px 10px; font-size: 13px; margin: 8px 0; display: none; }
+  /* photo */
+  #camWrap { width: min(92vw, 380px); margin: 6px auto; }
+  #camBox { width: 100%; aspect-ratio: 1; background: #000; border-radius: 12px; overflow: hidden; position: relative; border: 2px solid #39445a; }
+  #camBox video, #camBox img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  #camBox .guide { position: absolute; inset: 0; border: 3px dashed rgba(255,212,121,.0); pointer-events: none; }
+  .stepinfo { text-align: center; font-size: 15px; font-weight: 700; margin: 6px 0 2px; }
+  .stepdesc { text-align: center; font-size: 12.5px; color: #c8d4e4; margin: 0 0 6px; line-height: 1.55; }
+  .thumbs { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; margin: 8px 0; }
+  .thumb { width: 56px; text-align: center; cursor: pointer; }
+  .thumb .cv { width: 56px; height: 56px; border-radius: 8px; border: 2px solid #39445a; background: #232a38 center/cover no-repeat; }
+  .thumb.cur .cv { border-color: #ffd479; }
+  .thumb .tl { font-size: 10px; color: #c8d4e4; margin-top: 2px; }
+  input[type=file] { display: none; }
+  /* picker sheet */
+  #sheet { position: fixed; inset: 0; background: rgba(0,0,0,.62); display: none; z-index: 60; }
+  #sheet .panel { position: absolute; left: 0; right: 0; bottom: 0; max-height: 82vh; overflow-y: auto; background: #1c2331; border-radius: 16px 16px 0 0; padding: 14px 12px 22px; }
+  #sheet h3 { margin: 0 0 4px; font-size: 15px; }
+  #sheet .hint { font-size: 12px; color: #9fb0c3; margin: 0 0 8px; line-height: 1.5; }
+  .candrow { display: flex; gap: 8px; flex-wrap: wrap; margin: 6px 0; }
+  .cand { width: 62px; text-align: center; cursor: pointer; }
+  .cand .tile { width: 62px; height: 62px; border-radius: 7px; background-repeat: no-repeat; border: 2px solid #39445a; position: relative; }
+  .cand.sel .tile { border-color: #63b3ed; }
+  .cand.used .tile { opacity: .35; }
+  .cand .cl { font-size: 10.5px; color: #c8d4e4; margin-top: 2px; line-height: 1.3; }
+  .pickface { font-size: 12px; color: #ffd479; margin: 10px 0 4px; font-weight: 700; }
+  /* identify cards */
+  .card { background: #1a2130; border: 1px solid #2c3648; border-radius: 12px; padding: 10px; margin: 10px 0; display: flex; gap: 10px; }
+  .card img { width: 108px; height: 108px; border-radius: 8px; flex: none; }
+  .card h3 { margin: 0 0 3px; font-size: 15px; }
+  .card .cen { font-size: 12.5px; color: #ffd479; margin: 0 0 5px; }
+  .card .marks { display: flex; flex-wrap: wrap; gap: 4px; margin: 0 0 6px; }
+  .card .marks span { font-size: 11px; background: #28324a; border-radius: 20px; padding: 2px 8px; }
+  .card .rel { font-size: 12px; color: #9fb0c3; line-height: 1.6; margin: 0; }
+  .guide-body { font-size: 14px; line-height: 1.75; }
+  .guide-body h3 { font-size: 15px; margin: 16px 0 4px; color: #ffd479; }
+  .guide-body ol, .guide-body ul { margin: 4px 0; padding-left: 22px; }
+  .note { font-size: 12px; color: #9fb0c3; line-height: 1.6; margin-top: 18px; border-top: 1px solid #2c3648; padding-top: 10px; }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<header>
+  <h1>秋葉原キューブパズル ソルバー</h1>
+  <p>絵柄キューブ（3×3×3）を、中心の絵の向きまでそろえて解きます</p>
+</header>
+<nav class="tabs" id="tabbar">
+  <button data-tab="play" class="active">あそぶ・解く</button>
+  <button data-tab="photo">写真で読む</button>
+  <button data-tab="manual">手で入れる</button>
+  <button data-tab="faces">見分け方</button>
+  <button data-tab="guide">解き方</button>
+</nav>
+<main>
+  <!-- ================= PLAY ================= -->
+  <section class="tab active" id="tab-play">
+    <div id="scene"><div id="cubeWrap"><div id="cube"></div></div></div>
+    <div class="viewbtns">
+      <button class="btn" data-view="std">ななめ</button>
+      <button class="btn" data-view="front">正面</button>
+      <button class="btn" data-view="top">上から</button>
+      <button class="btn" data-view="right">右から</button>
+      <button class="btn" data-view="back">背面</button>
+    </div>
+    <div class="status" id="playStatus"></div>
+    <div class="substatus" id="centreStatus"></div>
+    <div class="pad" id="movePad"></div>
+    <div class="btnrow">
+      <button class="btn" id="btnScramble">シャッフル</button>
+      <button class="btn" id="btnReset">完成形に戻す</button>
+      <button class="btn" id="btnUndo">↩ 1手戻す</button>
+      <button class="btn" id="btnRedo">↪ 1手進める</button>
+    </div>
+    <div class="btnrow">
+      <button class="btn primary" id="btnSolve">この状態を解く</button>
+    </div>
+    <div class="substatus" id="solveInfo"></div>
+    <div id="solPanel" class="hidden">
+      <div class="playback">
+        <button id="pbFirst">⏮ 最初</button>
+        <button id="pbBack">◀ 戻る</button>
+        <button id="pbPlay">▶ 再生</button>
+        <button id="pbFwd">進む ▶</button>
+        <button id="pbLast">最後 ⏭</button>
+        <select id="pbSpeed">
+          <option value="750">ゆっくり</option>
+          <option value="450" selected>ふつう</option>
+          <option value="240">速い</option>
+        </select>
+      </div>
+      <div class="substatus" id="pbProgress"></div>
+      <div id="solGroups"></div>
+    </div>
+  </section>
+
+  <!-- ================= PHOTO ================= -->
+  <section class="tab" id="tab-photo">
+    <div class="stepinfo" id="capTitle"></div>
+    <p class="stepdesc" id="capDesc"></p>
+    <div id="camWrap">
+      <div id="camBox">
+        <video id="camVideo" playsinline muted autoplay></video>
+        <img id="camImg" class="hidden" alt="撮影した面">
+        <div class="guide"></div>
+      </div>
+    </div>
+    <div class="btnrow">
+      <button class="btn primary" id="btnShot">📷 撮影する</button>
+      <button class="btn" id="btnFile">画像ファイルから選ぶ</button>
+      <input type="file" id="fileInput" accept="image/*">
+    </div>
+    <div class="thumbs" id="capThumbs"></div>
+    <div class="btnrow">
+      <button class="btn primary" id="btnAnalyse" disabled>読み取り結果を確認する</button>
+    </div>
+    <div id="photoReview" class="hidden">
+      <p class="stepdesc">自動で読み取った結果です。「要確認」のマスは候補から正しいステッカーを選んでください。底面（UDX・ダイビル）は撮影していないので、他の面から自動復元しています。中心のマスは、タップして候補選択と回転（↻）ができます。</p>
+      <div class="errors" id="photoErrors"></div>
+      <div class="okmsg" id="photoOk"></div>
+      <div class="net" data-net="photo"></div>
+      <div class="btnrow">
+        <button class="btn" id="btnPhotoCheck">整合性をチェック</button>
+        <button class="btn primary" id="btnPhotoApply">3Dに反映して解く</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= MANUAL ================= -->
+  <section class="tab" id="tab-manual">
+    <p class="stepdesc">実際のキューブを「秋葉原駅前を正面・末広町を上面」に持った状態で、各マスにどのステッカーがあるかを入力します。マスをタップしてステッカーを選びます。中心のマスは絵の向き（↻ボタンで90°ずつ回転）まで合わせてください。</p>
+    <div class="btnrow">
+      <button class="btn warn" id="btnManualClear">全部クリア</button>
+    </div>
+    <div class="errors" id="manualErrors"></div>
+    <div class="okmsg" id="manualOk"></div>
+    <div class="net" data-net="manual"></div>
+    <div class="btnrow">
+      <button class="btn" id="btnManualCheck">整合性をチェック</button>
+      <button class="btn primary" id="btnManualApply">3Dに反映して解く</button>
+    </div>
+  </section>
+
+  <!-- ================= FACES ================= -->
+  <section class="tab" id="tab-faces">
+    <p class="stepdesc">6つの面の見分け方です。隣の面は「写真の正位置で見たとき」の位置関係です。</p>
+    <div id="faceCards"></div>
+  </section>
+
+  <!-- ================= GUIDE ================= -->
+  <section class="tab" id="tab-guide">
+    <div class="guide-body">
+      <h3>このパズルの特徴</h3>
+      <p>普通のルービックキューブと違い、面の中心にも絵（時計やメイドさん、ビルなど）があり、<b>中心の絵の向き</b>までそろえないと完成になりません。このアプリの解法は、最後に中心の向きだけを直す手順（位置は一切くずれません）を検証付きで付けます。</p>
+      <h3>持ち方の基準</h3>
+      <p>このアプリでは <b>「秋葉原駅前」を正面、「末広町」を上面</b> に持った状態を基準にしています。面の位置はこの持ち方で「上＝末広町、下＝UDX・ダイビル、左＝神田明神下、右＝神田川、背面＝ヨドバシ・書泉」です。</p>
+      <h3>解き方の流れ</h3>
+      <ol>
+        <li><b>面を見分ける</b>：「面の見分け方」で中心の絵とランドマークを確認します。まず6つの中心が正しい面に来ているか（＝対面関係が正しいか）を見ます。</li>
+        <li><b>ふつうの3×3として解く</b>：色の代わりに「絵のつながり」を手がかりに、角と辺の位置をそろえます。このアプリの「この状態を解く」が手順を出します。</li>
+        <li><b>中心の向きを直す</b>：位置がそろったあと、残った中心の向きのずれを専用手順で直します（アプリが自動で手順の続きに付けます）。</li>
+      </ol>
+      <h3>写真で読むときのコツ</h3>
+      <ul>
+        <li>面全体が枠いっぱいに入るように、真っ正面から撮ってください。</li>
+        <li>光の反射で絵が見えないと読み取りに失敗します。少し角度を変えて撮り直してください。</li>
+        <li>「要確認」になったマスは、候補一覧から正しいものを選べば大丈夫です。</li>
+      </ul>
+    </div>
+    <p class="note">このソルバーは Kociemba の2フェーズ法でピースの位置を解き、中心の向きは「位置が一切くずれないこと」を計算機で検証した手順だけを使って直しています。表示される手順は、適用すると必ず完成形（中心の向きを含む）になることをアプリ内でもう一度シミュレーションで確認してから表示しています。</p>
+  </section>
+</main>
+
+<!-- picker sheet -->
+<div id="sheet">
+  <div class="panel">
+    <h3 id="sheetTitle"></h3>
+    <p class="hint" id="sheetHint"></p>
+    <div id="sheetCands"></div>
+    <div class="btnrow">
+      <button class="btn" id="sheetRotate">↻ 中心を90°回す</button>
+      <button class="btn" id="sheetClear">このマスを空にする</button>
+      <button class="btn primary" id="sheetClose">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<script src="catalogue.js"></script>
+<script src="cube-core.js"></script>
+<script src="solver.js"></script>
+<script src="centre.js"></script>
+<script>
+'use strict';
+const $ = (s, el) => (el || document).querySelector(s);
+const $$ = (s, el) => [...(el || document).querySelectorAll(s)];
+const POSNAMES = { U: '上', D: '下', F: '前', B: '後ろ', L: '左', R: '右' };
+const POSFACE_LABEL = { U: '上（末広町）', D: '下（UDX・ダイビル）', F: '前（秋葉原駅前）', B: '後ろ（ヨドバシ・書泉）', L: '左（神田明神下）', R: '右（神田川）' };
+const FACENAME = { A: '秋葉原駅前', B: '神田明神下', C: 'ヨドバシ・書泉', D: '神田川', E: 'UDX・ダイビル', F: '末広町' };
+function moveLabel(m) { return POSNAMES[m.face] + (m.power === 2 ? '2' : m.power === 3 ? "'" : ''); }
+function tileBg(el, home, hrow, hcol, rot) {
+  el.style.backgroundImage = `url(assets/face${home}.jpg)`;
+  el.style.backgroundSize = '300% 300%';
+  el.style.backgroundPosition = `${hcol * 50}% ${hrow * 50}%`;
+  el.style.transform = rot ? `rotate(${rot * 90}deg)` : '';
+}
+/* ================= tabs ================= */
+$('#tabbar').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-tab]'); if (!b) return;
+  $$('#tabbar button').forEach(x => x.classList.toggle('active', x === b));
+  $$('section.tab').forEach(x => x.classList.toggle('active', x.id === 'tab-' + b.dataset.tab));
+  window.scrollTo(0, 0);
+});
+function gotoTab(name) { $(`#tabbar button[data-tab="${name}"]`).click(); }
+</script>
+<script>
+'use strict';
+/* ================= PLAY TAB ================= */
+const SS = 96; // sticker px
+let viewRX = -24, viewRY = -30;
+let cube = CubeState.solved();
+let history = [], future = [];
+let solution = null; // { base: CubeState, moves: [], posCount, fixCount }
+let solIdx = 0, playing = false, playTimer = null;
+
+function applyView() { $('#cubeWrap').style.transform = `rotateX(${viewRX}deg) rotateY(${viewRY}deg)`; }
+const VIEWS = { std: [-24, -30], front: [0, 0], top: [-82, 0], right: [0, -90], back: [0, 180] };
+$$('.viewbtns [data-view]').forEach(b => b.addEventListener('click', () => { [viewRX, viewRY] = VIEWS[b.dataset.view]; applyView(); }));
+
+function stickerMatrix(s) {
+  const r = vCross(s.u, s.n), u = s.u, n = s.n;
+  const p = [s.pos[0] + 0.5 * n[0], s.pos[1] + 0.5 * n[1], s.pos[2] + 0.5 * n[2]]; // sticker plane sits on the cube surface (cubie pos + half unit along normal)
+  const m = [
+    r[0], -r[1], r[2], 0,
+    -u[0], u[1], -u[2], 0,
+    n[0], -n[1], n[2], 0,
+    p[0] * SS, -p[1] * SS, p[2] * SS, 1,
+  ];
+  return `matrix3d(${m.join(',')})`;
+}
+function renderCube() {
+  const c = $('#cube'); c.innerHTML = '';
+  for (const s of cube.stickers) {
+    const d = document.createElement('div');
+    d.className = 'sticker';
+    d.style.width = d.style.height = SS + 'px';
+    d.style.marginLeft = d.style.marginTop = (-SS / 2) + 'px';
+    tileBg(d, s.home, s.row, s.col, 0);
+    d.style.transform = stickerMatrix(s);
+    d.dataset.key = s.home + s.row + s.col;
+    c.appendChild(d);
+  }
+  updateCentreStatus();
+}
+function updateCentreStatus() {
+  const rots = cube.centerRotations();
+  const parts = [];
+  for (const p of ['U', 'D', 'F', 'B', 'L', 'R']) if (rots[p]) parts.push(`${POSNAMES[p]}の中心が${rots[p] * 90}°ずれ`);
+  let msg = '';
+  if (cube.isFullySolved()) msg = '完成しています！🎉';
+  else if (cube.isPositionSolved()) msg = 'ピースの位置はそろっています。あとは中心の向きだけです' + (parts.length ? `（${parts.join('、')}）` : '');
+  else if (parts.length) msg = `中心の向き：${parts.join('、')}`;
+  $('#centreStatus').textContent = msg;
+}
+/* ---- move animation ---- */
+function rotAxisAngle(v, axis, ang) {
+  const c = Math.cos(ang), s = Math.sin(ang), t = 1 - c;
+  const [x, y, z] = axis;
+  return [
+    (t * x * x + c) * v[0] + (t * x * y - s * z) * v[1] + (t * x * z + s * y) * v[2],
+    (t * x * y + s * z) * v[0] + (t * y * y + c) * v[1] + (t * y * z - s * x) * v[2],
+    (t * x * z - s * y) * v[0] + (t * y * z + s * x) * v[1] + (t * z * z + c) * v[2],
+  ];
+}
+let animating = false;
+function animateMove(face, power, dur, done) {
+  const n = POS_NORMAL[face];
+  const layer = document.createElement('div');
+  layer.className = 'layer3d';
+  const els = [];
+  for (const el of $$('#cube .sticker')) {
+    const s = cube.stickers.find(x => (x.home + x.row + x.col) === el.dataset.key);
+    if (s && vDot(s.pos, n) === 1) els.push(el);
+  }
+  $('#cube').appendChild(layer);
+  els.forEach(el => layer.appendChild(el));
+  const eff = power === 3 ? -1 : power; // quarter turns, CW positive viewed from outside
+  const total = -Math.PI / 2 * eff;
+  const t0 = performance.now();
+  animating = true;
+  function frame(t) {
+    const f = Math.min(1, (t - t0) / dur);
+    const e = 1 - Math.pow(1 - f, 2);
+    const ang = total * e;
+    const cols = [];
+    for (const b of [[1, 0, 0], [0, 1, 0], [0, 0, 1]]) {
+      const w = [b[0], -b[1], b[2]]; // css basis -> world
+      const rw = rotAxisAngle(w, n, ang);
+      cols.push([rw[0], -rw[1], rw[2]]);
+    }
+    layer.style.transform = `matrix3d(${cols[0][0]},${cols[0][1]},${cols[0][2]},0,${cols[1][0]},${cols[1][1]},${cols[1][2]},0,${cols[2][0]},${cols[2][1]},${cols[2][2]},0,0,0,0,1)`;
+    if (f < 1) requestAnimationFrame(frame);
+    else { animating = false; done && done(); }
+  }
+  requestAnimationFrame(frame);
+}
+function doMove(m, record = true, animate = true) {
+  if (animating) return;
+  const apply = () => { cube.applyMove(m.face, m.power); renderCube(); };
+  if (record) { history.push(m); future = []; }
+  if (animate) animateMove(m.face, m.power, 190, apply); else apply();
+  clearSolutionIfManual();
+}
+function clearSolutionIfManual() { /* manual moves invalidate a loaded solution playback */ 
+  if (solution && solIdx >= 0 && !playbackLock) { /* keep solution; user may still step */ }
+}
+/* ---- move pad ---- */
+(function buildPad() {
+  const pad = $('#movePad');
+  for (const f of ['U', 'D', 'F', 'B', 'L', 'R']) {
+    const g = document.createElement('div'); g.className = 'padgroup';
+    g.innerHTML = `<div class="lab">${POSFACE_LABEL[f]}</div>`;
+    const row = document.createElement('div'); row.className = 'row';
+    for (const [p, sym] of [[1, '↻'], [2, '2'], [3, '↺']]) {
+      const b = document.createElement('button');
+      b.textContent = POSNAMES[f] + (p === 1 ? '' : p === 2 ? '2' : "'");
+      b.title = POSFACE_LABEL[f] + (p === 1 ? ' 時計回り' : p === 2 ? ' 180°' : ' 反時計回り');
+      b.addEventListener('click', () => { stopPlayback(); doMove({ face: f, power: p }); });
+      row.appendChild(b);
+    }
+    g.appendChild(row); pad.appendChild(g);
+  }
+})();
+$('#btnReset').addEventListener('click', () => { stopPlayback(); cube = CubeState.solved(); history = []; future = []; solution = null; $('#solPanel').classList.add('hidden'); renderCube(); $('#playStatus').textContent = ''; });
+$('#btnScramble').addEventListener('click', () => {
+  stopPlayback();
+  const F = 'UDFBLR'; const moves = []; let last = '';
+  for (let i = 0; i < 25; i++) { let f; do { f = F[Math.floor(Math.random() * 6)]; } while (f === last); last = f; moves.push({ face: f, power: 1 + Math.floor(Math.random() * 3) }); }
+  cube = CubeState.solved(); history = []; future = []; solution = null; $('#solPanel').classList.add('hidden');
+  for (const m of moves) { cube.applyMove(m.face, m.power); history.push(m); }
+  renderCube(); $('#playStatus').textContent = 'シャッフルしました';
+});
+$('#btnUndo').addEventListener('click', () => { stopPlayback(); const m = history.pop(); if (!m) return; future.push(m); cube.applyMove(m.face, (4 - m.power) % 4); renderCube(); });
+$('#btnRedo').addEventListener('click', () => { stopPlayback(); const m = future.pop(); if (!m) return; history.push(m); cube.applyMove(m.face, m.power); renderCube(); });
+/* ---- drag rotate ---- */
+(function drag() {
+  const sc = $('#scene'); let dragId = null, lx = 0, ly = 0;
+  sc.addEventListener('pointerdown', (e) => { dragId = e.pointerId; lx = e.clientX; ly = e.clientY; sc.setPointerCapture(dragId); });
+  sc.addEventListener('pointermove', (e) => {
+    if (dragId !== e.pointerId) return;
+    viewRY += (e.clientX - lx) * 0.55; viewRX -= (e.clientY - ly) * 0.55;
+    viewRX = Math.max(-88, Math.min(88, viewRX));
+    lx = e.clientX; ly = e.clientY; applyView();
+  });
+  const end = (e) => { if (dragId === e.pointerId) dragId = null; };
+  sc.addEventListener('pointerup', end); sc.addEventListener('pointercancel', end);
+})();
+/* ---- solving & playback ---- */
+let playbackLock = false;
+$('#btnSolve').addEventListener('click', () => {
+  stopPlayback();
+  $('#playStatus').textContent = '計算中…（初回は数秒かかります）';
+  $('#btnSolve').disabled = true;
+  setTimeout(() => {
+    try {
+      const res = solveWithCentres(cube, solve);
+      if (!res.ok) { $('#playStatus').textContent = '解法が見つかりませんでした：' + (res.errors || []).join(' / '); return; }
+      loadSolution(cube.clone(), res);
+      $('#playStatus').textContent = res.moves.length === 0 ? 'すでに完成しています' : `解法が見つかりました（全${res.moves.length}手）`;
+    } catch (err) {
+      $('#playStatus').textContent = '計算でエラーが起きました：' + err.message;
+    } finally { $('#btnSolve').disabled = false; }
+  }, 60);
+});
+function loadSolution(baseState, res) {
+  solution = { base: baseState, moves: res.moves, posCount: res.positionMoves, fixCount: res.centreFixMoves };
+  solIdx = 0;
+  cube = baseState.clone();
+  history = []; future = [];
+  renderCube(); renderSolutionPanel();
+  $('#solPanel').classList.remove('hidden');
+  $('#solveInfo').textContent = `位置そろえ ${res.positionMoves} 手 ＋ 中心修正 ${res.centreFixMoves} 手`;
+}
+function renderSolutionPanel() {
+  const wrap = $('#solGroups'); wrap.innerHTML = '';
+  const mk = (title, from, to) => {
+    if (to <= from) return;
+    const h = document.createElement('div'); h.className = 'solgroup'; h.textContent = title; wrap.appendChild(h);
+    const chips = document.createElement('div'); chips.className = 'chips';
+    for (let i = from; i < to; i++) {
+      const c = document.createElement('span'); c.className = 'chip'; c.dataset.idx = i;
+      c.textContent = `${i + 1}. ${moveLabel(solution.moves[i])}`;
+      c.addEventListener('click', () => { stopPlayback(); gotoStep(i + 1); });
+      chips.appendChild(c);
+    }
+    wrap.appendChild(chips);
+  };
+  mk(`ピースの位置をそろえる（${solution.posCount}手）`, 0, solution.posCount);
+  mk(`中心の向きを直す（${solution.fixCount}手）`, solution.posCount, solution.moves.length);
+  updatePlaybackUI();
+}
+function stateAt(idx) {
+  const st = solution.base.clone();
+  for (let i = 0; i < idx; i++) st.applyMove(solution.moves[i].face, solution.moves[i].power);
+  return st;
+}
+function gotoStep(idx, animate = false) {
+  if (!solution) return;
+  idx = Math.max(0, Math.min(solution.moves.length, idx));
+  if (animate && Math.abs(idx - solIdx) === 1) {
+    const forward = idx > solIdx;
+    const m = forward ? solution.moves[solIdx] : { face: solution.moves[solIdx - 1].face, power: (4 - solution.moves[solIdx - 1].power) % 4 };
+    playbackLock = true;
+    animateMove(m.face, m.power, 200, () => { solIdx = idx; cube = stateAt(solIdx); renderCube(); updatePlaybackUI(); playbackLock = false; });
+  } else {
+    solIdx = idx; cube = stateAt(solIdx); renderCube(); updatePlaybackUI();
+  }
+}
+function updatePlaybackUI() {
+  if (!solution) return;
+  $('#pbProgress').textContent = `${solIdx} / ${solution.moves.length} 手` + (solIdx === solution.moves.length ? '（完成！）' : '');
+  $$('#solGroups .chip').forEach(c => {
+    const i = Number(c.dataset.idx);
+    c.classList.toggle('done', i < solIdx);
+    c.classList.toggle('now', i === solIdx);
+  });
+  $('#pbPlay').textContent = playing ? '⏸ 一時停止' : '▶ 再生';
+}
+function stopPlayback() { playing = false; if (playTimer) { clearInterval(playTimer); playTimer = null; } if (solution) updatePlaybackUI(); }
+$('#pbFirst').addEventListener('click', () => { stopPlayback(); gotoStep(0); });
+$('#pbLast').addEventListener('click', () => { stopPlayback(); gotoStep(solution ? solution.moves.length : 0); });
+$('#pbBack').addEventListener('click', () => { stopPlayback(); gotoStep(solIdx - 1, true); });
+$('#pbFwd').addEventListener('click', () => { stopPlayback(); gotoStep(solIdx + 1, true); });
+$('#pbPlay').addEventListener('click', () => {
+  if (!solution) return;
+  if (playing) { stopPlayback(); return; }
+  if (solIdx >= solution.moves.length) gotoStep(0);
+  playing = true; updatePlaybackUI();
+  playTimer = setInterval(() => {
+    if (animating) return;
+    if (solIdx >= solution.moves.length) { stopPlayback(); return; }
+    gotoStep(solIdx + 1, true);
+  }, Number($('#pbSpeed').value));
+});
+applyView(); renderCube();
+</script>
+<script>
+'use strict';
+/* ================= REVIEW (shared: photo & manual) ================= */
+const NET_LAYOUT = [null, 'U', null, null, 'L', 'F', 'R', 'B', null, 'D', null, null];
+function baseRotOf(pos) {
+  const home = POS_HOME_FACE[pos];
+  const u = FACE_IMAGE_UP[home];
+  const { vu, vr } = FACELET_VIEW[pos];
+  const a = vDot(u, vr), b = vDot(u, vu);
+  if (a === 0 && b === 1) return 0; if (a === 1 && b === 0) return 1;
+  if (a === 0 && b === -1) return 2; return 3;
+}
+function makeReview(netEl, opts) {
+  const R = {
+    opts,
+    assign: {},      // assign[pos][r][c] = null | {home, hrow, hcol, rot, flag, auto}
+    centreRot: { U: 0, D: 0, F: 0, B: 0, L: 0, R: 0 },
+    cand: {},        // cand[pos][r][c] = [{home,hrow,hcol,rot,score}] (photo)
+    cur: null,       // currently edited cell {pos, r, c}
+  };
+  for (const p of ['U', 'D', 'F', 'B', 'L', 'R']) {
+    R.assign[p] = [[null, null, null], [null, null, null], [null, null, null]];
+    R.cand[p] = [[[], [], []], [[], [], []], [[], [], []]];
+  }
+  R.render = function () {
+    netEl.innerHTML = '';
+    for (const item of NET_LAYOUT) {
+      if (!item) { const d = document.createElement('div'); d.className = 'blank'; netEl.appendChild(d); continue; }
+      const pos = item;
+      const g = document.createElement('div'); g.className = 'facegrid';
+      const isAuto = opts.autoFaces && opts.autoFaces.includes(pos);
+      g.innerHTML = `<div class="fname">${POSFACE_LABEL[pos]}${isAuto ? ' <span class="auto">自動復元</span>' : ''}</div>`;
+      const cells = document.createElement('div'); cells.className = 'cells';
+      for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) {
+        const cell = document.createElement('div');
+        cell.className = 'cell' + (r === 1 && c === 1 ? ' center' : '');
+        const a = R.assign[pos][r][c];
+        if (a) {
+          const t = document.createElement('div'); t.className = 'tile';
+          const dispRot = (r === 1 && c === 1) ? (baseRotOf(pos) + R.centreRot[pos]) % 4 : (a.rot || 0);
+          tileBg(t, a.home, a.hrow, a.hcol, dispRot);
+          cell.appendChild(t);
+          const badge = document.createElement('span'); badge.className = 'badge'; badge.textContent = a.home;
+          cell.appendChild(badge);
+          if (a.flag) { const f = document.createElement('span'); f.className = 'flag'; f.textContent = '要確認'; cell.appendChild(f); }
+        } else cell.classList.add('empty');
+        cell.addEventListener('click', () => openPicker(R, pos, r, c));
+        cells.appendChild(cell);
+      }
+      g.appendChild(cells); netEl.appendChild(g);
+    }
+  };
+  R.tileUsedAt = function (home, hr, hc, except) {
+    for (const p of ['U', 'D', 'F', 'B', 'L', 'R']) for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) {
+      if (except && except.pos === p && except.r === r && except.c === c) continue;
+      const a = R.assign[p][r][c];
+      if (a && a.home === home && a.hrow === hr && a.hcol === hc) return { pos: p, r, c };
+    }
+    return null;
+  };
+  R.setCell = function (pos, r, c, tile, rot, flag) {
+    // swap if the tile is used elsewhere
+    if (tile) {
+      const other = R.tileUsedAt(tile.home, tile.hrow, tile.hcol, { pos, r, c });
+      const mine = R.assign[pos][r][c];
+      if (other) R.assign[other.pos][other.r][other.c] = mine ? { ...mine } : null;
+    }
+    R.assign[pos][r][c] = tile ? { home: tile.home, hrow: tile.hrow, hcol: tile.hcol, rot: rot || 0, flag: !!flag, auto: false } : null;
+    R.render();
+  };
+  R.collect = function () {
+    const missing = [];
+    const seen = new Set();
+    let fc = '';
+    for (const p of ['U', 'R', 'F', 'D', 'L', 'B']) for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) {
+      const a = R.assign[p][r][c];
+      if (!a) { missing.push(`${POSNAMES[p]}面 ${r + 1}行${c + 1}列`); fc += '?'; continue; }
+      const key = a.home + a.hrow + a.hcol;
+      if (seen.has(key)) return { error: `同じステッカーが2か所で使われています（${FACENAME[a.home]}面のステッカー）` };
+      seen.add(key);
+      fc += FACE_HOME_POS[a.home];
+    }
+    if (missing.length) return { error: `未入力のマスが ${missing.length} 個あります`, missing };
+    return { fc };
+  };
+  R.checkAndApply = function (errEl, okEl, applyBtn) {
+    const show = (el, txt) => { errEl.style.display = txt ? 'block' : 'none'; errEl.textContent = txt || ''; };
+    const showOk = (txt) => { okEl.style.display = txt ? 'block' : 'none'; okEl.textContent = txt || ''; };
+    show(null); showOk(null);
+    const col = R.collect();
+    if (col.error) { show(col.error); return false; }
+    const v = validateFacelets(col.fc);
+    if (!v.ok) { show('整合性エラー：' + v.errors.join(' / ')); return false; }
+    if (!applyBtn) { showOk('整合性チェックOK：実在するキューブの状態です。このまま「3Dに反映して解く」に進めます。'); return true; }
+    // build state and solve (verified inside solveWithCentres)
+    const state = CubeState.fromFaceletString(col.fc, { ...R.centreRot });
+    applyBtn.disabled = true; applyBtn.textContent = '計算中…';
+    setTimeout(() => {
+      try {
+        const res = solveWithCentres(state, solve);
+        if (!res.ok) { show('解法が見つかりませんでした：' + (res.errors || []).join(' / ')); return; }
+        gotoTab('play');
+        loadSolution(state.clone(), res);
+        $('#playStatus').textContent = `入力を反映しました。解法は全${res.moves.length}手です`;
+      } catch (err) { show('エラー：' + err.message); }
+      finally { applyBtn.disabled = false; applyBtn.textContent = '3Dに反映して解く'; }
+    }, 60);
+    return true;
+  };
+  R.render();
+  return R;
+}
+/* ---- picker sheet ---- */
+let sheetReview = null;
+function openPicker(R, pos, r, c) {
+  sheetReview = R; R.cur = { pos, r, c };
+  const isCentre = r === 1 && c === 1;
+  $('#sheetTitle').textContent = `${POSFACE_LABEL[pos]} の ${r + 1}行${c + 1}列${isCentre ? '（中心）' : ''}`;
+  const cand = R.cand[pos][r][c];
+  $('#sheetHint').textContent = cand.length
+    ? '写真の読み取り候補です（似ている順）。違う場合は下の全ステッカーから選んでください。'
+    : 'このマスにあるステッカーを選んでください。';
+  const wrap = $('#sheetCands'); wrap.innerHTML = '';
+  const cur = R.assign[pos][r][c];
+  const mkCand = (container, tile, rot, label) => {
+    const d = document.createElement('div');
+    const usedAt = R.tileUsedAt(tile.home, tile.hrow, tile.hcol, { pos, r, c });
+    d.className = 'cand' + (cur && cur.home === tile.home && cur.hrow === tile.hrow && cur.hcol === tile.hcol ? ' sel' : '') + (usedAt ? ' used' : '');
+    const t = document.createElement('div'); t.className = 'tile';
+    tileBg(t, tile.home, tile.hrow, tile.hcol, isCentre ? (baseRotOf(pos) + R.centreRot[pos]) % 4 : (rot || 0));
+    d.appendChild(t);
+    const l = document.createElement('div'); l.className = 'cl'; l.textContent = label;
+    d.appendChild(l);
+    d.addEventListener('click', () => { R.setCell(pos, r, c, tile, rot || 0, false); openPicker(R, pos, r, c); });
+    container.appendChild(d);
+  };
+  if (cand.length) {
+    const row = document.createElement('div'); row.className = 'candrow';
+    cand.slice(0, 5).forEach((cd, i) => mkCand(row, cd, cd.rot, `${FACENAME[cd.home]} ${cd.hrow + 1}-${cd.hcol + 1}\n候補${i + 1} ${Math.round(cd.score * 100)}%`));
+    wrap.appendChild(row);
+  }
+  for (const f of ['A', 'B', 'C', 'D', 'E', 'F']) {
+    const h = document.createElement('div'); h.className = 'pickface'; h.textContent = `${f}面：${FACENAME[f]}`; wrap.appendChild(h);
+    const row = document.createElement('div'); row.className = 'candrow';
+    for (let hr = 0; hr < 3; hr++) for (let hc = 0; hc < 3; hc++) mkCand(row, { home: f, hrow: hr, hcol: hc }, 0, `${hr + 1}-${hc + 1}`);
+    wrap.appendChild(row);
+  }
+  $('#sheetRotate').style.display = isCentre ? '' : 'none';
+  $('#sheetClear').style.display = R.opts.allowClear ? '' : 'none';
+  $('#sheet').style.display = 'block';
+}
+$('#sheetClose').addEventListener('click', () => { $('#sheet').style.display = 'none'; });
+$('#sheet').addEventListener('click', (e) => { if (e.target.id === 'sheet') $('#sheet').style.display = 'none'; });
+$('#sheetRotate').addEventListener('click', () => {
+  const R = sheetReview; if (!R || !R.cur) return;
+  const { pos, r, c } = R.cur;
+  R.centreRot[pos] = (R.centreRot[pos] + 1) % 4;
+  R.render(); openPicker(R, pos, r, c);
+});
+$('#sheetClear').addEventListener('click', () => {
+  const R = sheetReview; if (!R || !R.cur) return;
+  const { pos, r, c } = R.cur;
+  R.assign[pos][r][c] = null; R.render(); openPicker(R, pos, r, c);
+});
+/* ---- manual review instance ---- */
+const manualReview = makeReview($('[data-net="manual"]'), { allowClear: true });
+$('#btnManualClear').addEventListener('click', () => {
+  for (const p of ['U', 'D', 'F', 'B', 'L', 'R']) for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) manualReview.assign[p][r][c] = null;
+  for (const p of Object.keys(manualReview.centreRot)) manualReview.centreRot[p] = 0;
+  manualReview.render();
+  $('#manualErrors').style.display = 'none'; $('#manualOk').style.display = 'none';
+});
+$('#btnManualCheck').addEventListener('click', () => manualReview.checkAndApply($('#manualErrors'), $('#manualOk'), null));
+$('#btnManualApply').addEventListener('click', (e) => manualReview.checkAndApply($('#manualErrors'), $('#manualOk'), e.currentTarget));
+</script>
+<script>
+'use strict';
+/* ================= IDENTIFY CARDS ================= */
+(function renderFaceCards() {
+  const wrap = $('#faceCards');
+  for (const f of ['A', 'B', 'C', 'D', 'E', 'F']) {
+    const info = FACE_INFO[f];
+    const nb = FACE_NEIGHBORS[f];
+    const card = document.createElement('div'); card.className = 'card';
+    card.innerHTML = `
+      <img src="assets/face${f}.jpg" alt="${f}面 ${info.name}">
+      <div>
+        <h3>${f}面：${info.name}</h3>
+        <p class="cen">中心：${info.center}</p>
+        <div class="marks">${info.marks.map(m => `<span>${m}</span>`).join('')}</div>
+        <p class="rel">対面：${OPPOSITE[f]}面（${FACENAME[OPPOSITE[f]]}）<br>
+        隣の面（写真の向き）：上＝${nb[0]}面（${FACENAME[nb[0]]}）／右＝${nb[1]}面（${FACENAME[nb[1]]}）／下＝${nb[2]}面（${FACENAME[nb[2]]}）／左＝${nb[3]}面（${FACENAME[nb[3]]}）</p>
+      </div>`;
+    wrap.appendChild(card);
+  }
+})();
+/* ================= PHOTO ================= */
+const photoReview = makeReview($('[data-net="photo"]'), { allowClear: false, autoFaces: ['D'] });
+const CAP_STEPS = [
+  { pos: 'F', title: '1/5 正面：秋葉原駅前', desc: '基本の持ち方（秋葉原駅前が正面・末広町が上面）のまま、正面を撮ります。面全体を枠いっぱいに、真っ正面から撮ってください。' },
+  { pos: 'R', title: '2/5 右面：神田川', desc: '上面（末広町）を上にしたまま、キューブを左へ90°回して、右面（神田川）を正面に向けます。そのまま撮ります。' },
+  { pos: 'B', title: '3/5 背面：ヨドバシ・書泉', desc: 'そのまま180°回して、背面（ヨドバシ・書泉）を正面に向けます（上面は末広町のまま）。' },
+  { pos: 'L', title: '4/5 左面：神田明神下', desc: 'さらに90°回して、左面（神田明神下）を正面に向けます（上面は末広町のまま）。' },
+  { pos: 'U', title: '5/5 上面：末広町', desc: '最後に上面（末広町）を撮ります。背面（ヨドバシ）側が写真の「上」になるように、上面をこちらへ向けてください。底面（UDX・ダイビル）は撮らなくて大丈夫です（自動で復元します）。' },
+];
+const captures = {}; // pos -> canvas 300x300
+let capStep = 0;
+let stream = null, loadedImage = null;
+async function startCamera() {
+  if (stream) return true;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+    $('#camVideo').srcObject = stream;
+    return true;
+  } catch (e) { return false; }
+}
+function updateCapUI() {
+  const step = CAP_STEPS[capStep];
+  const done = Object.keys(captures).length;
+  if (done >= 5) { $('#capTitle').textContent = '5面そろいました'; $('#capDesc').textContent = '「読み取り結果を確認する」を押してください。撮り直したい面は下のサムネイルをタップします。'; }
+  else { $('#capTitle').textContent = step.title; $('#capDesc').textContent = step.desc; }
+  $('#btnAnalyse').disabled = done < 5;
+  const th = $('#capThumbs'); th.innerHTML = '';
+  CAP_STEPS.forEach((s, i) => {
+    const d = document.createElement('div'); d.className = 'thumb' + (i === capStep && done < 5 ? ' cur' : '');
+    const cv = document.createElement('div'); cv.className = 'cv';
+    if (captures[s.pos]) cv.style.backgroundImage = `url(${captures[s.pos].toDataURL('image/jpeg', 0.7)})`;
+    d.appendChild(cv);
+    const tl = document.createElement('div'); tl.className = 'tl'; tl.textContent = POSFACE_LABEL[s.pos].split('（')[0] + (captures[s.pos] ? ' ✓' : '');
+    d.appendChild(tl);
+    d.addEventListener('click', () => { capStep = i; updateCapUI(); });
+    th.appendChild(d);
+  });
+}
+function captureFrom(src, sw, sh) {
+  const cv = document.createElement('canvas'); cv.width = cv.height = 300;
+  const ctx = cv.getContext('2d');
+  const s = Math.max(300 / sw, 300 / sh);
+  const dw = sw * s, dh = sh * s;
+  ctx.drawImage(src, (300 - dw) / 2, (300 - dh) / 2, dw, dh);
+  return cv;
+}
+$('#btnShot').addEventListener('click', async () => {
+  const pos = CAP_STEPS[capStep].pos;
+  const v = $('#camVideo');
+  if (!stream && !loadedImage) { const ok = await startCamera(); if (!ok && !loadedImage) { $('#fileInput').click(); return; } }
+  if (stream && v.videoWidth) captures[pos] = captureFrom(v, v.videoWidth, v.videoHeight);
+  else if (loadedImage) captures[pos] = captureFrom(loadedImage, loadedImage.naturalWidth, loadedImage.naturalHeight);
+  else return;
+  // advance to next uncaptured
+  const nxt = CAP_STEPS.findIndex(s => !captures[s.pos]);
+  if (nxt >= 0) capStep = nxt;
+  updateCapUI();
+});
+$('#btnFile').addEventListener('click', () => $('#fileInput').click());
+$('#fileInput').addEventListener('change', (e) => {
+  const f = e.target.files[0]; if (!f) return;
+  const img = new Image();
+  img.onload = () => { loadedImage = img; const ci = $('#camImg'); ci.src = img.src; ci.classList.remove('hidden'); $('#camVideo').classList.add('hidden'); };
+  img.src = URL.createObjectURL(f);
+});
+$('#tabbar').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-tab]');
+  if (b && b.dataset.tab === 'photo') startCamera().then(ok => { if (ok) { $('#camImg').classList.add('hidden'); $('#camVideo').classList.remove('hidden'); } });
+});
+/* ---- image matching ---- */
+const faceImages = {};
+function loadFaceImages() {
+  return Promise.all(['A', 'B', 'C', 'D', 'E', 'F'].map(f => new Promise((res, rej) => {
+    const img = new Image();
+    img.onload = () => { faceImages[f] = img; res(); };
+    img.onerror = rej;
+    img.src = `assets/face${f}.jpg`;
+  })));
+}
+function drawRegion(src, sx, sy, sw, sh, size) {
+  const cv = document.createElement('canvas'); cv.width = cv.height = size;
+  cv.getContext('2d').drawImage(src, sx, sy, sw, sh, 0, 0, size, size);
+  return cv;
+}
+function featuresOf(canvas48) {
+  const ctx = canvas48.getContext('2d');
+  const data = ctx.getImageData(0, 0, 48, 48).data;
+  const hist = new Float32Array(64);
+  for (let i = 0; i < data.length; i += 4) {
+    const r = data[i] >> 6, g = data[i + 1] >> 6, b = data[i + 2] >> 6;
+    hist[(r * 4 + g) * 4 + b]++;
+  }
+  let sum = 0; for (let i = 0; i < 64; i++) sum += hist[i];
+  for (let i = 0; i < 64; i++) hist[i] /= sum;
+  const g16 = drawRegion(canvas48, 0, 0, 48, 48, 16);
+  const gd = g16.getContext('2d').getImageData(0, 0, 16, 16).data;
+  const gray = new Float32Array(256);
+  let mean = 0;
+  for (let i = 0; i < 256; i++) { gray[i] = 0.299 * gd[i * 4] + 0.587 * gd[i * 4 + 1] + 0.114 * gd[i * 4 + 2]; mean += gray[i]; }
+  mean /= 256;
+  let norm = 0;
+  for (let i = 0; i < 256; i++) { gray[i] -= mean; norm += gray[i] * gray[i]; }
+  norm = Math.sqrt(norm) || 1;
+  for (let i = 0; i < 256; i++) gray[i] /= norm;
+  return { hist, gray };
+}
+function rotateCanvas48(src, k) {
+  if (k === 0) return src;
+  const cv = document.createElement('canvas'); cv.width = cv.height = 48;
+  const ctx = cv.getContext('2d');
+  ctx.translate(24, 24); ctx.rotate(k * Math.PI / 2); ctx.drawImage(src, -24, -24);
+  return cv;
+}
+let refTiles = null; // key -> {home,hrow,hcol,feat}
+function buildRefTiles() {
+  if (refTiles) return refTiles;
+  refTiles = {};
+  for (const f of ['A', 'B', 'C', 'D', 'E', 'F']) {
+    for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) {
+      const cv = drawRegion(faceImages[f], c * 300, r * 300, 300, 300, 48);
+      refTiles[f + r + c] = { home: f, hrow: r, hcol: c, feat: featuresOf(cv) };
+    }
+  }
+  return refTiles;
+}
+function scoreFeat(cellFeat, tileFeat) {
+  let hd = 0; for (let i = 0; i < 64; i++) hd += Math.abs(cellFeat.hist[i] - tileFeat.hist[i]);
+  const histSim = 1 - hd / 2;
+  let dot = 0; for (let i = 0; i < 256; i++) dot += cellFeat.gray[i] * tileFeat.gray[i];
+  return 0.45 * histSim + 0.55 * ((dot + 1) / 2);
+}
+$('#btnAnalyse').addEventListener('click', async () => {
+  $('#btnAnalyse').disabled = true; $('#btnAnalyse').textContent = '読み取り中…';
+  try {
+    await loadFaceImages(); buildRefTiles();
+    analyseCaptures();
+    $('#photoReview').classList.remove('hidden');
+    $('#photoReview').scrollIntoView({ behavior: 'smooth' });
+  } catch (err) {
+    alert('読み取りでエラーが起きました：' + err.message);
+  } finally { $('#btnAnalyse').disabled = false; $('#btnAnalyse').textContent = '読み取り結果を確認する'; }
+});
+function analyseCaptures() {
+  const R = photoReview;
+  // per-cell candidates
+  const cellLists = {}; // pos -> rows
+  for (const step of CAP_STEPS) {
+    const pos = step.pos;
+    cellLists[pos] = [];
+    for (let r = 0; r < 3; r++) {
+      cellLists[pos][r] = [];
+      for (let c = 0; c < 3; c++) {
+        const cellCv = drawRegion(captures[pos], c * 100, r * 100, 100, 100, 48);
+        const feat0 = featuresOf(cellCv);
+        const list = [];
+        for (const key of Object.keys(refTiles)) {
+          const t = refTiles[key];
+          let best = -1, bestK = 0;
+          for (let k = 0; k < 4; k++) {
+            const f = k === 0 ? feat0 : featuresOf(rotateCanvas48(cellCv, k));
+            const sc = scoreFeat({ hist: feat0.hist, gray: f.gray }, t.feat);
+            if (sc > best) { best = sc; bestK = k; }
+          }
+          list.push({ home: t.home, hrow: t.hrow, hcol: t.hcol, rot: (4 - bestK) % 4, score: best });
+        }
+        list.sort((a, b) => b.score - a.score);
+        cellLists[pos][r][c] = list;
+        R.cand[pos][r][c] = list;
+      }
+    }
+  }
+  // greedy global assignment
+  const pairs = [];
+  for (const step of CAP_STEPS) { const pos = step.pos;
+    for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) for (const cd of cellLists[pos][r][c]) pairs.push({ pos, r, c, cd });
+  }
+  pairs.sort((a, b) => b.cd.score - a.cd.score);
+  const usedTile = new Set(), filled = new Set();
+  for (const { pos, r, c, cd } of pairs) {
+    const ck = pos + r + c, tk = cd.home + cd.hrow + cd.hcol;
+    if (usedTile.has(tk) || filled.has(ck)) continue;
+    usedTile.add(tk); filled.add(ck);
+    const list = cellLists[pos][r][c];
+    const margin = list[0].score - list[1].score;
+    const flag = margin < 0.05 || list[0].score < 0.5;
+    R.assign[pos][r][c] = { home: cd.home, hrow: cd.hrow, hcol: cd.hcol, rot: cd.rot, flag, auto: false };
+  }
+  // centre rotations from observed rotations
+  for (const step of CAP_STEPS) {
+    const pos = step.pos;
+    const a = R.assign[pos][1][1];
+    if (a) R.centreRot[pos] = ((a.rot - baseRotOf(pos)) % 4 + 4) % 4;
+  }
+  restoreBottom(R);
+  R.render();
+}
+function restoreBottom(R) {
+  const solved = CubeState.solved();
+  const groups = new Map(); // posKey -> stickers
+  for (const s of solved.stickers) {
+    const k = s.pos.join(',');
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(s);
+  }
+  const tileKey = (t) => t.home + t.hrow + t.hcol;
+  for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) {
+    if (r === 1 && c === 1) {
+      R.assign.D[1][1] = { home: 'E', hrow: 1, hcol: 1, rot: 0, flag: true, auto: true };
+      continue;
+    }
+    const cp = cubiePosOf('D', r, c);
+    const sibTiles = [];
+    for (const Q of ['U', 'F', 'B', 'L', 'R']) {
+      if (vDot(cp, POS_NORMAL[Q]) === 1) {
+        const g = gridOf(Q, cp);
+        const a = R.assign[Q][g.row][g.col];
+        if (a) sibTiles.push(tileKey(a));
+      }
+    }
+    let foundTile = null;
+    for (const g of groups.values()) {
+      const keys = g.map(s => s.home + s.row + s.col);
+      if (sibTiles.every(t => keys.includes(t))) {
+        const rest = g.filter(s => !sibTiles.includes(s.home + s.row + s.col));
+        if (rest.length === 1) foundTile = rest[0];
+        break;
+      }
+    }
+    if (foundTile) R.assign.D[r][c] = { home: foundTile.home, hrow: foundTile.row, hcol: foundTile.col, rot: 0, flag: sibTiles.length < (r !== 1 && c !== 1 ? 2 : 1), auto: true };
+    else R.assign.D[r][c] = null;
+  }
+}
+$('#btnPhotoCheck').addEventListener('click', () => photoReview.checkAndApply($('#photoErrors'), $('#photoOk'), null));
+$('#btnPhotoApply').addEventListener('click', (e) => photoReview.checkAndApply($('#photoErrors'), $('#photoOk'), e.currentTarget));
+updateCapUI();
+</script>
+</body>
+</html>
