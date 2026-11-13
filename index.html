@@ -25,7 +25,7 @@
   .modebtn { flex: 1; max-width: 190px; padding: 9px 6px; font-size: 13.5px; border-radius: 9px; border: 1px solid #39445a; background: #1d2432; color: #cfd9e6; cursor: pointer; min-height: 42px; }
   .modebtn.active { background: #2b6cb0; border-color: #2b6cb0; color: #fff; font-weight: 700; }
   /* ---- 3D scene ---- */
-  #scene { width: min(96vw, 420px); height: min(96vw, 420px); margin: 4px auto; perspective: 950px; touch-action: none; position: relative; }
+  #scene { width: min(96vw, 420px); height: min(96vw, 420px); margin: 4px auto; perspective: 1800px; touch-action: none; position: relative; }
   #cubeWrap { width: 100%; height: 100%; position: absolute; transform-style: preserve-3d; }
   #cube, .layer3d { position: absolute; inset: 0; transform-style: preserve-3d; }
   .sticker { position: absolute; left: 50%; top: 50%; border-radius: 7px; overflow: hidden; box-shadow: inset 0 0 0 2px rgba(10,10,14,.85); background-color: #20242c; background-repeat: no-repeat; }
@@ -366,7 +366,7 @@ function analyticFit() {
   // First estimate: project the cube's 8 corners with the scene's perspective.
   try {
     const sc = $('#scene');
-    const D = parseFloat(getComputedStyle(sc).perspective) || 950;
+    const D = parseFloat(getComputedStyle(sc).perspective) || 1800;
     const m = viewMatrix();
     let ex = 0, ey = 0;
     for (const cx of [-1.5, 1.5]) for (const cy of [-1.5, 1.5]) for (const cz of [-1.5, 1.5]) {
@@ -379,14 +379,18 @@ function analyticFit() {
     return Math.min(1, (sc.clientWidth / 2) / ex, (sc.clientHeight / 2) / ey) * 0.99;
   } catch (e) { return 1; }
 }
-function correctFit() {
+let fitRun = 0;
+async function correctFit() {
   // Fit by direct measurement only. The rendered size does not scale
   // linearly with viewFit (perspective), so a one-shot proportional
   // correction overshoots and shrinks the cube far more than needed;
   // iterate with damping until the measured bounds sit just inside the
   // scene. The analytic projection is only a seed: it underestimates the
-  // rendered size by up to ~12% at diagonal angles.
+  // rendered size by up to ~12% at diagonal angles. Steps are spread over
+  // animation frames so the size glides to its target instead of popping
+  // whenever the user finishes a rotation.
   const sc = $('#scene'); if (!sc) return;
+  const run = ++fitRun;
   const sr = sc.getBoundingClientRect();
   const cx = sr.left + sr.width / 2, cy = sr.top + sr.height / 2;
   const measure = () => {
@@ -401,14 +405,17 @@ function correctFit() {
     if (!any) return null;
     return Math.min(sr.width / (Math.max(R - cx, cx - L) * 2), sr.height / (Math.max(B - cy, cy - T) * 2));
   };
-  for (let i = 0; i < 10; i++) {
+  const frame = () => new Promise(r => requestAnimationFrame(r));
+  for (let i = 0; i < 16; i++) {
     const ratio = measure();
     if (ratio === null) return;
     const target = ratio / 0.995; // aim for bounds at 99.5% of the scene
     if (target >= 0.99 && target <= 1.01) return;
-    const step = Math.min(1.3, Math.max(0.7, Math.pow(target, 0.7)));
+    const step = Math.min(1.3, Math.max(0.7, Math.pow(target, 0.28)));
     viewFit *= step;
     setViewTransform();
+    await frame();
+    if (run !== fitRun) return; // a newer view change superseded this run
   }
   // safety: never leave the cube sticking out of the scene
   for (let i = 0; i < 4; i++) {
@@ -416,6 +423,8 @@ function correctFit() {
     if (ratio === null || ratio >= 0.995) return;
     viewFit *= ratio * 0.99;
     setViewTransform();
+    await frame();
+    if (run !== fitRun) return;
   }
 }
 function applyView(correct = true) {
@@ -568,7 +577,12 @@ $('#modeScroll').addEventListener('click', () => setDragMode('scroll'));
   sc.addEventListener('pointermove', (e) => {
     if (dragId !== e.pointerId) return;
     viewRY += (e.clientX - lx) * 0.55; viewRX -= (e.clientY - ly) * 0.55;
-    lx = e.clientX; ly = e.clientY; setViewTransform(); // keep the resting size while dragging; exact fit is restored on release
+    lx = e.clientX; ly = e.clientY;
+    // Ease the size toward the fit this angle will need, so the cube does
+    // not pop bigger/smaller when the drag ends; the exact measurement
+    // fit still runs on release.
+    viewFit += (analyticFit() * 0.85 - viewFit) * 0.22;
+    setViewTransform();
   });
   const end = (e) => { if (dragId === e.pointerId) { dragId = null; applyView(); } };
   sc.addEventListener('pointerup', end); sc.addEventListener('pointercancel', end);
