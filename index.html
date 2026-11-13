@@ -21,6 +21,9 @@
   main { padding: 10px 10px 40px; max-width: 600px; margin: 0 auto; }
   section.tab { display: none; }
   section.tab.active { display: block; }
+  .modebar { display: flex; gap: 6px; justify-content: center; margin: 2px 0 4px; }
+  .modebtn { flex: 1; max-width: 190px; padding: 9px 6px; font-size: 13.5px; border-radius: 9px; border: 1px solid #39445a; background: #1d2432; color: #cfd9e6; cursor: pointer; min-height: 42px; }
+  .modebtn.active { background: #2b6cb0; border-color: #2b6cb0; color: #fff; font-weight: 700; }
   /* ---- 3D scene ---- */
   #scene { width: min(94vw, 400px); height: min(94vw, 400px); margin: 4px auto; perspective: 950px; touch-action: none; position: relative; }
   #cubeWrap { width: 100%; height: 100%; position: absolute; transform-style: preserve-3d; }
@@ -126,6 +129,10 @@
 <main>
   <!-- ================= PLAY ================= -->
   <section class="tab active" id="tab-play">
+    <div class="modebar">
+      <button type="button" id="modeRotate" class="modebtn active">⟳ キューブを回す</button>
+      <button type="button" id="modeScroll" class="modebtn">↕ 画面をスクロール</button>
+    </div>
     <div id="scene"><div id="cubeWrap"><div id="cube"></div></div></div>
     <div class="viewbtns">
       <button class="btn" data-view="std">ななめ</button>
@@ -433,33 +440,27 @@ $('#btnScramble').addEventListener('click', () => {
 });
 $('#btnUndo').addEventListener('click', () => { if (animating) return; stopPlayback(); stateGen++; const m = history.pop(); if (!m) return; future.push(m); cube.applyMove(m.face, (4 - m.power) % 4); renderCube(); });
 $('#btnRedo').addEventListener('click', () => { if (animating) return; stopPlayback(); stateGen++; const m = future.pop(); if (!m) return; history.push(m); cube.applyMove(m.face, m.power); renderCube(); });
-/* ---- drag on cube: horizontal-first drag rotates the cube (both axes);
-        vertical-first drag scrolls the page (manual scrollBy, since touch-action:none) ---- */
+/* ---- cube drag mode toggle: 'rotate' = drags rotate the cube (both axes);
+        'scroll' = drags on the cube scroll the page natively ---- */
+let dragMode = 'rotate';
+function setDragMode(m) {
+  dragMode = m;
+  $('#scene').style.touchAction = m === 'rotate' ? 'none' : 'pan-y';
+  $('#modeRotate').classList.toggle('active', m === 'rotate');
+  $('#modeScroll').classList.toggle('active', m === 'scroll');
+}
+$('#modeRotate').addEventListener('click', () => setDragMode('rotate'));
+$('#modeScroll').addEventListener('click', () => setDragMode('scroll'));
 (function drag() {
-  const sc = $('#scene');
-  let dragId = null, lx = 0, ly = 0, sx = 0, sy = 0, mode = null; // mode: null | 'rotate' | 'scroll'
-  sc.addEventListener('pointerdown', (e) => {
-    dragId = e.pointerId; lx = sx = e.clientX; ly = sy = e.clientY; mode = null;
-    sc.setPointerCapture(dragId);
-  });
+  const sc = $('#scene'); let dragId = null, lx = 0, ly = 0;
+  sc.addEventListener('pointerdown', (e) => { if (dragMode !== 'rotate') return; dragId = e.pointerId; lx = e.clientX; ly = e.clientY; sc.setPointerCapture(dragId); });
   sc.addEventListener('pointermove', (e) => {
     if (dragId !== e.pointerId) return;
-    const dx = e.clientX - lx, dy = e.clientY - ly;
-    if (!mode) {
-      const ax = Math.abs(e.clientX - sx), ay = Math.abs(e.clientY - sy);
-      if (Math.max(ax, ay) < 9) return;
-      mode = (ax >= ay || e.pointerType === 'mouse') ? 'rotate' : 'scroll';
-    }
-    if (mode === 'rotate') {
-      viewRY += dx * 0.55; viewRX -= dy * 0.55;
-      viewRX = Math.max(-88, Math.min(88, viewRX));
-      applyView();
-    } else {
-      window.scrollBy(0, -dy);
-    }
-    lx = e.clientX; ly = e.clientY;
+    viewRY += (e.clientX - lx) * 0.55; viewRX -= (e.clientY - ly) * 0.55;
+    viewRX = Math.max(-88, Math.min(88, viewRX));
+    lx = e.clientX; ly = e.clientY; applyView();
   });
-  const end = (e) => { if (dragId === e.pointerId) { dragId = null; mode = null; } };
+  const end = (e) => { if (dragId === e.pointerId) dragId = null; };
   sc.addEventListener('pointerup', end); sc.addEventListener('pointercancel', end);
 })();
 /* ---- solving & playback ---- */
