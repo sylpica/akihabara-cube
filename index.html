@@ -453,6 +453,11 @@ $('#modeRotate').addEventListener('click', () => setDragMode('rotate'));
 $('#modeScroll').addEventListener('click', () => setDragMode('scroll'));
 (function drag() {
   const sc = $('#scene'); let dragId = null, lx = 0, ly = 0;
+  // iOS Safari / WKWebView may ignore touch-action:none; block native scrolling
+  // in rotate mode at the touch level as well (must be non-passive).
+  const stopScroll = (e) => { if (dragMode === 'rotate') e.preventDefault(); };
+  sc.addEventListener('touchstart', stopScroll, { passive: false });
+  sc.addEventListener('touchmove', stopScroll, { passive: false });
   sc.addEventListener('pointerdown', (e) => { if (dragMode !== 'rotate') return; dragId = e.pointerId; lx = e.clientX; ly = e.clientY; sc.setPointerCapture(dragId); });
   sc.addEventListener('pointermove', (e) => {
     if (dragId !== e.pointerId) return;
