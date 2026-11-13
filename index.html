@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
 <title>秋葉原キューブパズル ソルバー</title>
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
@@ -22,6 +22,7 @@
   section.tab { display: none; }
   section.tab.active { display: block; }
   .modebar { display: flex; gap: 6px; justify-content: center; margin: 2px 0 4px; }
+  html, button, .chip { touch-action: manipulation; } /* no double-tap zoom on rapid taps */
   .modebtn { flex: 1; max-width: 190px; padding: 9px 6px; font-size: 13.5px; border-radius: 9px; border: 1px solid #39445a; background: #1d2432; color: #cfd9e6; cursor: pointer; min-height: 42px; }
   .modebtn.active { background: #2b6cb0; border-color: #2b6cb0; color: #fff; font-weight: 700; }
   /* ---- 3D scene ---- */
@@ -72,6 +73,7 @@
   .cell .tile { position: absolute; inset: 0; border-radius: 4px; background-repeat: no-repeat; }
   .cell.empty { border-style: dashed; }
   .cell .flag { position: absolute; left: 0; right: 0; bottom: -1px; font-size: 9px; line-height: 1.25; text-align: center; background: rgba(180,60,40,.92); color: #fff; border-radius: 0 0 4px 4px; z-index: 2; }
+  .cell .flag.mflag { background: rgba(30,90,180,.92); }
   .cell .badge { position: absolute; top: 0; left: 0; font-size: 9px; background: rgba(0,0,0,.65); color: #ffd479; padding: 0 3px; border-radius: 4px 0 4px 0; z-index: 2; }
   .cell.center .tile { box-shadow: inset 0 0 0 2px rgba(255,212,121,.55); }
   .errors { background: #4a2320; border: 1px solid #9b2c2c; color: #ffd9d4; border-radius: 9px; padding: 8px 10px; font-size: 13px; margin: 8px 0; display: none; }
@@ -126,7 +128,6 @@
 <nav class="tabs" id="tabbar">
   <button data-tab="play" class="active">あそぶ・解く</button>
   <button data-tab="photo">写真で読む</button>
-  <button data-tab="manual">手で入れる</button>
   <button data-tab="faces">見分け方</button>
   <button data-tab="guide">解き方</button>
 </nav>
@@ -147,15 +148,15 @@
     </div>
     <div class="status" id="playStatus"></div>
     <div class="substatus" id="centreStatus"></div>
+    <div class="btnrow">
+      <button class="btn primary" id="btnSolve">この状態を解く</button>
+      <button class="btn" id="btnScramble">シャッフル</button>
+    </div>
     <div class="pad" id="movePad"></div>
     <div class="btnrow">
-      <button class="btn" id="btnScramble">シャッフル</button>
       <button class="btn" id="btnReset">完成形に戻す</button>
       <button class="btn" id="btnUndo">↩ 1手戻す</button>
       <button class="btn" id="btnRedo">↪ 1手進める</button>
-    </div>
-    <div class="btnrow">
-      <button class="btn primary" id="btnSolve">この状態を解く</button>
     </div>
     <div class="substatus" id="solveInfo"></div>
     <div id="solPanel" class="hidden">
@@ -197,29 +198,17 @@
       <button class="btn primary" id="btnAnalyse" disabled>読み取り結果を確認する</button>
     </div>
     <div id="photoReview" class="hidden">
-      <p class="stepdesc">自動で読み取った結果です。「要確認」のマスは候補から正しいステッカーを選んでください。底面（UDX・ダイビル）は撮影していないので、他の面から自動復元しています。中心のマスは、タップして候補選択と回転（↻）ができます。</p>
+      <p class="stepdesc">自動で読み取った結果です。「要確認」のマスや、写真が上手く反映されていないマスは、「手で直す」ボタン（またはマスをタップ）から、全ステッカーの中から正しいものを選び直せます。底面（UDX・ダイビル）は撮影していないので、他の面から自動復元しています。中心のマスは、タップして候補選択と回転（↻）ができます。</p>
       <div class="errors" id="photoErrors"></div>
       <div class="okmsg" id="photoOk"></div>
+      <div class="btnrow">
+        <button class="btn warn" id="btnManualFix">✋ 手で直す（読めなかったマス）</button>
+      </div>
       <div class="net" data-net="photo"></div>
       <div class="btnrow">
         <button class="btn" id="btnPhotoCheck">整合性をチェック</button>
         <button class="btn primary" id="btnPhotoApply">3Dに反映して解く</button>
       </div>
-    </div>
-  </section>
-
-  <!-- ================= MANUAL ================= -->
-  <section class="tab" id="tab-manual">
-    <p class="stepdesc">実際のキューブを「秋葉原駅前を正面・末広町を上面」に持った状態で、各マスにどのステッカーがあるかを入力します。マスをタップしてステッカーを選びます。中心のマスは絵の向き（↻ボタンで90°ずつ回転）まで合わせてください。</p>
-    <div class="btnrow">
-      <button class="btn warn" id="btnManualClear">全部クリア</button>
-    </div>
-    <div class="errors" id="manualErrors"></div>
-    <div class="okmsg" id="manualOk"></div>
-    <div class="net" data-net="manual"></div>
-    <div class="btnrow">
-      <button class="btn" id="btnManualCheck">整合性をチェック</button>
-      <button class="btn primary" id="btnManualApply">3Dに反映して解く</button>
     </div>
   </section>
 
@@ -282,7 +271,7 @@ function moveLabel(m) { return POSNAMES[m.face] + (m.power === 2 ? '2' : m.power
 const TILE_ZOOM = 1.04; // sample the centre of each face photo; the outer ~4% is the table the cube was photographed on
 function tilePos(k) { return (k + 1.5 * (TILE_ZOOM - 1)) / (3 * TILE_ZOOM - 1) * 100; }
 function tileBg(el, home, hrow, hcol, rot) {
-  el.style.backgroundImage = `url(assets/face${home}.jpg?v=2)`;
+  el.style.backgroundImage = `url(assets/face${home}.jpg?v=3)`;
   el.style.backgroundSize = `${300 * TILE_ZOOM}% ${300 * TILE_ZOOM}%`;
   el.style.backgroundPosition = `${tilePos(hcol)}% ${tilePos(hrow)}%`;
   el.style.transform = rot ? `rotate(${rot * 90}deg)` : '';
@@ -292,7 +281,7 @@ function tileImg(home, hrow, hcol) {
   // percentage background positions on matrix3d elements, which squeezed
   // the map and dragged the photo's beige edge into view.
   const im = document.createElement('img');
-  im.src = `assets/face${home}.jpg?v=2`;
+  im.src = `assets/face${home}.jpg?v=3`;
   im.alt = ''; im.draggable = false;
   const off = (k) => -(k + 1.5 * (TILE_ZOOM - 1)) * 100;
   im.style.cssText = `position:absolute;left:${off(hcol)}%;top:${off(hrow)}%;width:${300 * TILE_ZOOM}%;height:${300 * TILE_ZOOM}%;max-width:none;pointer-events:none;`;
@@ -379,58 +368,63 @@ function analyticFit() {
     return Math.min(1, (sc.clientWidth / 2) / ex, (sc.clientHeight / 2) / ey) * 0.99;
   } catch (e) { return 1; }
 }
-let fitRun = 0;
-async function correctFit() {
-  // Fit by direct measurement only. The rendered size does not scale
-  // linearly with viewFit (perspective), so a one-shot proportional
-  // correction overshoots and shrinks the cube far more than needed;
-  // iterate with damping until the measured bounds sit just inside the
-  // scene. The analytic projection is only a seed: it underestimates the
-  // rendered size by up to ~12% at diagonal angles. Steps are spread over
-  // animation frames so the size glides to its target instead of popping
-  // whenever the user finishes a rotation.
-  const sc = $('#scene'); if (!sc) return;
-  const run = ++fitRun;
+let fixedFit = 1;
+function measureRatio() {
+  // scene size / rendered cube bounds at the current view and fit (>1 = room to spare)
+  const sc = $('#scene'); if (!sc) return null;
   const sr = sc.getBoundingClientRect();
   const cx = sr.left + sr.width / 2, cy = sr.top + sr.height / 2;
-  const measure = () => {
-    let L = 1e9, R = -1e9, T = 1e9, B = -1e9, any = false;
-    for (const el of $$('#cube .sticker')) {
-      if (el.style.display === 'none') continue;
-      const q = el.getBoundingClientRect();
-      if (!q.width) continue;
-      any = true;
-      L = Math.min(L, q.left); R = Math.max(R, q.right); T = Math.min(T, q.top); B = Math.max(B, q.bottom);
-    }
-    if (!any) return null;
-    return Math.min(sr.width / (Math.max(R - cx, cx - L) * 2), sr.height / (Math.max(B - cy, cy - T) * 2));
-  };
-  const frame = () => new Promise(r => requestAnimationFrame(r));
-  for (let i = 0; i < 16; i++) {
-    const ratio = measure();
-    if (ratio === null) return;
-    const target = ratio / 0.995; // aim for bounds at 99.5% of the scene
-    if (target >= 0.99 && target <= 1.01) return;
-    const step = Math.min(1.3, Math.max(0.7, Math.pow(target, 0.28)));
-    viewFit *= step;
-    setViewTransform();
-    await frame();
-    if (run !== fitRun) return; // a newer view change superseded this run
+  let L = 1e9, R = -1e9, T = 1e9, B = -1e9, any = false;
+  for (const el of $$('#cube .sticker')) {
+    if (el.style.display === 'none') continue;
+    const q = el.getBoundingClientRect();
+    if (!q.width) continue;
+    any = true;
+    L = Math.min(L, q.left); R = Math.max(R, q.right); T = Math.min(T, q.top); B = Math.max(B, q.bottom);
   }
-  // safety: never leave the cube sticking out of the scene
+  if (!any) return null;
+  return Math.min(sr.width / (Math.max(R - cx, cx - L) * 2), sr.height / (Math.max(B - cy, cy - T) * 2));
+}
+function fitForAngle(rx, ry) {
+  // The fit that just contains the cube at one angle, by direct measurement.
+  viewRX = rx; viewRY = ry; viewFit = analyticFit();
+  setViewTransform();
+  for (let i = 0; i < 12; i++) {
+    const ratio = measureRatio();
+    if (ratio === null) return 1;
+    const target = ratio / 0.995;
+    if (target >= 0.995 && target <= 1.005) break;
+    viewFit *= Math.min(1.3, Math.max(0.7, Math.pow(target, 0.8)));
+    setViewTransform();
+  }
   for (let i = 0; i < 4; i++) {
-    const ratio = measure();
-    if (ratio === null || ratio >= 0.995) return;
+    const ratio = measureRatio();
+    if (ratio === null || ratio >= 0.995) break;
     viewFit *= ratio * 0.99;
     setViewTransform();
-    await frame();
-    if (run !== fitRun) return;
   }
+  return viewFit;
 }
-function applyView(correct = true) {
-  viewFit = analyticFit() * 0.85;
+function calibrateFixedFit() {
+  // One fixed size for every angle (the user asked for a completely fixed
+  // size: no growing/shrinking while rotating). Calibrate it as the
+  // smallest contained fit over the binding view directions: the body
+  // diagonals, face diagonals and axis views, measured on the real render.
+  const saveRX = viewRX, saveRY = viewRY;
+  const cand = [];
+  for (const rx of [35.26, -35.26, 60, -60, 120, -120, 144.74, -144.74]) for (const ry of [45, -45, 135, -135]) cand.push([rx, ry]);
+  cand.push([0, 0], [0, 90], [0, -90], [0, 180], [90, 0], [-90, 0],
+            [0, 45], [0, -45], [45, 0], [-45, 0], [90, 45], [90, -45], [-90, 45], [-90, -45],
+            [-24, -30]);
+  let min = Infinity;
+  for (const [a, b] of cand) min = Math.min(min, fitForAngle(a, b));
+  fixedFit = (isFinite(min) ? min : 1) * 0.98;
+  viewRX = saveRX; viewRY = saveRY; viewFit = fixedFit;
   setViewTransform();
-  if (correct) correctFit();
+}
+function applyView() {
+  viewFit = fixedFit;
+  setViewTransform();
 }
 const VIEWS = { std: [-24, -30], front: [0, 0], top: [-82, 0], right: [0, -90], back: [0, 180] };
 $$('.viewbtns [data-view]').forEach(b => b.addEventListener('click', () => { [viewRX, viewRY] = VIEWS[b.dataset.view]; applyView(); }));
@@ -566,6 +560,25 @@ function setDragMode(m) {
 }
 $('#modeRotate').addEventListener('click', () => setDragMode('rotate'));
 $('#modeScroll').addEventListener('click', () => setDragMode('scroll'));
+/* Rapid repeated taps (e.g. hammering the move pad) trigger the browser's
+   double-tap zoom in WKWebView even with touch-action: manipulation, so
+   swallow the second tap's touchend — but still fire the button's click
+   ourselves, so fast move input is not lost. */
+let lastTouchEnd = 0;
+document.addEventListener('touchend', (e) => {
+  const now = e.timeStamp;
+  if (now - lastTouchEnd < 350 && e.cancelable) {
+    e.preventDefault();
+    const t = e.changedTouches && e.changedTouches[0];
+    if (t) {
+      const el = document.elementFromPoint(t.clientX, t.clientY);
+      const btn = el && el.closest ? el.closest('button, .chip') : null;
+      if (btn) btn.click();
+    }
+  }
+  lastTouchEnd = now;
+}, { passive: false });
+document.addEventListener('gesturestart', (e) => { if (e.cancelable) e.preventDefault(); });
 (function drag() {
   const sc = $('#scene'); let dragId = null, lx = 0, ly = 0;
   // iOS Safari / WKWebView may ignore touch-action:none; block native scrolling
@@ -578,11 +591,7 @@ $('#modeScroll').addEventListener('click', () => setDragMode('scroll'));
     if (dragId !== e.pointerId) return;
     viewRY += (e.clientX - lx) * 0.55; viewRX -= (e.clientY - ly) * 0.55;
     lx = e.clientX; ly = e.clientY;
-    // Ease the size toward the fit this angle will need, so the cube does
-    // not pop bigger/smaller when the drag ends; the exact measurement
-    // fit still runs on release.
-    viewFit += (analyticFit() * 0.85 - viewFit) * 0.22;
-    setViewTransform();
+    setViewTransform(); // fixed size: rotation only, the scale never changes
   });
   const end = (e) => { if (dragId === e.pointerId) { dragId = null; applyView(); } };
   sc.addEventListener('pointerup', end); sc.addEventListener('pointercancel', end);
@@ -612,6 +621,7 @@ function loadSolution(baseState, res) {
   history = []; future = [];
   renderCube(); renderSolutionPanel();
   $('#solPanel').classList.remove('hidden');
+  setTimeout(() => { const p = $('#solPanel'); if (p) p.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 80);
   $('#solveInfo').textContent = `位置そろえ ${res.positionMoves} 手 ＋ 中心修正 ${res.centreFixMoves} 手`;
 }
 function renderSolutionPanel() {
@@ -677,7 +687,9 @@ $('#pbPlay').addEventListener('click', () => {
     gotoStep(solIdx + 1, true);
   }, Number($('#pbSpeed').value));
 });
-applyView(); renderCube();
+renderCube(); calibrateFixedFit();
+let lastSceneW = 0;
+setInterval(() => { const w = $('#scene') ? $('#scene').clientWidth : 0; if (lastSceneW && w && Math.abs(w - lastSceneW) > 2) calibrateFixedFit(); lastSceneW = w || lastSceneW; }, 800);
 </script>
 <script>
 'use strict';
@@ -724,6 +736,7 @@ function makeReview(netEl, opts) {
           const badge = document.createElement('span'); badge.className = 'badge'; badge.textContent = a.home;
           cell.appendChild(badge);
           if (a.flag) { const f = document.createElement('span'); f.className = 'flag'; f.textContent = '要確認'; cell.appendChild(f); }
+          if (a.manual) { const f = document.createElement('span'); f.className = 'flag mflag'; f.textContent = '手で修正'; cell.appendChild(f); }
         } else cell.classList.add('empty');
         cell.addEventListener('click', () => openPicker(R, pos, r, c));
         cells.appendChild(cell);
@@ -746,7 +759,7 @@ function makeReview(netEl, opts) {
       const mine = R.assign[pos][r][c];
       if (other) R.assign[other.pos][other.r][other.c] = mine ? { ...mine } : null;
     }
-    R.assign[pos][r][c] = tile ? { home: tile.home, hrow: tile.hrow, hcol: tile.hcol, rot: rot || 0, flag: !!flag, auto: false } : null;
+    R.assign[pos][r][c] = tile ? { home: tile.home, hrow: tile.hrow, hcol: tile.hcol, rot: rot || 0, flag: !!flag, auto: false, manual: !!R.opts.photo } : null;
     R.render();
   };
   R.collect = function () {
@@ -843,40 +856,7 @@ $('#sheetClear').addEventListener('click', () => {
   const { pos, r, c } = R.cur;
   R.assign[pos][r][c] = null; R.render(); openPicker(R, pos, r, c);
 });
-/* ---- manual review instance ---- */
-const manualReview = makeReview($('[data-net="manual"]'), { allowClear: true });
-$('#btnManualClear').addEventListener('click', () => {
-  for (const p of ['U', 'D', 'F', 'B', 'L', 'R']) for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) manualReview.assign[p][r][c] = null;
-  for (const p of Object.keys(manualReview.centreRot)) manualReview.centreRot[p] = 0;
-  manualReview.render();
-  $('#manualErrors').style.display = 'none'; $('#manualOk').style.display = 'none';
-});
-$('#btnManualCheck').addEventListener('click', () => manualReview.checkAndApply($('#manualErrors'), $('#manualOk'), null));
-$('#btnManualApply').addEventListener('click', (e) => manualReview.checkAndApply($('#manualErrors'), $('#manualOk'), e.currentTarget));
-</script>
-<script>
-'use strict';
-/* ================= IDENTIFY CARDS ================= */
-(function renderFaceCards() {
-  const wrap = $('#faceCards');
-  for (const f of ['A', 'B', 'C', 'D', 'E', 'F']) {
-    const info = FACE_INFO[f];
-    const nb = FACE_NEIGHBORS[f];
-    const card = document.createElement('div'); card.className = 'card';
-    card.innerHTML = `
-      <div class="fimg"><img src="assets/face${f}.jpg?v=2" alt="${f}面 ${info.name}"></div>
-      <div>
-        <h3>${f}面：${info.name}</h3>
-        <p class="cen">中心：${info.center}</p>
-        <div class="marks">${info.marks.map(m => `<span>${m}</span>`).join('')}</div>
-        <p class="rel">対面：${OPPOSITE[f]}面（${FACENAME[OPPOSITE[f]]}）<br>
-        隣の面（写真の向き）：上＝${nb[0]}面（${FACENAME[nb[0]]}）／右＝${nb[1]}面（${FACENAME[nb[1]]}）／下＝${nb[2]}面（${FACENAME[nb[2]]}）／左＝${nb[3]}面（${FACENAME[nb[3]]}）</p>
-      </div>`;
-    wrap.appendChild(card);
-  }
-})();
-/* ================= PHOTO ================= */
-const photoReview = makeReview($('[data-net="photo"]'), { allowClear: false, autoFaces: ['D'] });
+const photoReview = makeReview($('[data-net="photo"]'), { allowClear: true, autoFaces: ['D'], photo: true });
 const CAP_STEPS = [
   { pos: 'F', title: '1/5 正面：秋葉原駅前', desc: '基本の持ち方（秋葉原駅前が正面・末広町が上面）のまま、正面を撮ります。面全体を枠いっぱいに、真っ正面から撮ってください。' },
   { pos: 'R', title: '2/5 右面：神田川', desc: '上面（末広町）を上にしたまま、キューブを左へ90°回して、右面（神田川）を正面に向けます。そのまま撮ります。' },
@@ -951,7 +931,7 @@ function loadFaceImages() {
     const img = new Image();
     img.onload = () => { faceImages[f] = img; res(); };
     img.onerror = rej;
-    img.src = `assets/face${f}.jpg?v=2`;
+    img.src = `assets/face${f}.jpg?v=3`;
   })));
 }
 function drawRegion(src, sx, sy, sw, sh, size) {
@@ -1107,6 +1087,28 @@ function restoreBottom(R) {
     else R.assign.D[r][c] = null;
   }
 }
+$('#btnManualFix').addEventListener('click', () => {
+  const R = photoReview;
+  let target = null;
+  for (const kind of ['empty', 'flag', 'auto']) {
+    for (const pos of NET_LAYOUT.filter(Boolean)) {
+      for (let r = 0; r < 3 && !target; r++) for (let c = 0; c < 3 && !target; c++) {
+        const a = R.assign[pos][r][c];
+        if (kind === 'empty' && !a) target = { pos, r, c };
+        else if (kind === 'flag' && a && a.flag) target = { pos, r, c };
+        else if (kind === 'auto' && a && a.auto) target = { pos, r, c };
+      }
+      if (target) break;
+    }
+    if (target) break;
+  }
+  if (!target) {
+    const ok = $('#photoOk'); ok.style.display = 'block';
+    ok.textContent = 'すべてのマスが読み取り済みです。直したいマスがあれば、そのマスをタップしても選び直せます。';
+    return;
+  }
+  openPicker(R, target.pos, target.r, target.c);
+});
 $('#btnPhotoCheck').addEventListener('click', () => photoReview.checkAndApply($('#photoErrors'), $('#photoOk'), null));
 $('#btnPhotoApply').addEventListener('click', (e) => photoReview.checkAndApply($('#photoErrors'), $('#photoOk'), e.currentTarget));
 updateCapUI();
