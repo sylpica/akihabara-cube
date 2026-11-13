@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>秋葉原キューブパズル ソルバー</title>
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <style>
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { margin: 0; padding: 0; }
@@ -19,7 +22,7 @@
   section.tab { display: none; }
   section.tab.active { display: block; }
   /* ---- 3D scene ---- */
-  #scene { width: min(94vw, 400px); height: min(94vw, 400px); margin: 4px auto; perspective: 950px; touch-action: pan-y; position: relative; }
+  #scene { width: min(94vw, 400px); height: min(94vw, 400px); margin: 4px auto; perspective: 950px; touch-action: none; position: relative; }
   #cubeWrap { width: 100%; height: 100%; position: absolute; transform-style: preserve-3d; }
   #cube, .layer3d { position: absolute; inset: 0; transform-style: preserve-3d; }
   .sticker { position: absolute; left: 50%; top: 50%; border-radius: 7px; box-shadow: inset 0 0 0 2px rgba(10,10,14,.85); background-color: #20242c; background-repeat: no-repeat; backface-visibility: hidden; }
@@ -430,17 +433,33 @@ $('#btnScramble').addEventListener('click', () => {
 });
 $('#btnUndo').addEventListener('click', () => { if (animating) return; stopPlayback(); stateGen++; const m = history.pop(); if (!m) return; future.push(m); cube.applyMove(m.face, (4 - m.power) % 4); renderCube(); });
 $('#btnRedo').addEventListener('click', () => { if (animating) return; stopPlayback(); stateGen++; const m = future.pop(); if (!m) return; history.push(m); cube.applyMove(m.face, m.power); renderCube(); });
-/* ---- drag rotate ---- */
+/* ---- drag on cube: horizontal-first drag rotates the cube (both axes);
+        vertical-first drag scrolls the page (manual scrollBy, since touch-action:none) ---- */
 (function drag() {
-  const sc = $('#scene'); let dragId = null, lx = 0, ly = 0;
-  sc.addEventListener('pointerdown', (e) => { dragId = e.pointerId; lx = e.clientX; ly = e.clientY; sc.setPointerCapture(dragId); });
+  const sc = $('#scene');
+  let dragId = null, lx = 0, ly = 0, sx = 0, sy = 0, mode = null; // mode: null | 'rotate' | 'scroll'
+  sc.addEventListener('pointerdown', (e) => {
+    dragId = e.pointerId; lx = sx = e.clientX; ly = sy = e.clientY; mode = null;
+    sc.setPointerCapture(dragId);
+  });
   sc.addEventListener('pointermove', (e) => {
     if (dragId !== e.pointerId) return;
-    viewRY += (e.clientX - lx) * 0.55; viewRX -= (e.clientY - ly) * 0.55;
-    viewRX = Math.max(-88, Math.min(88, viewRX));
-    lx = e.clientX; ly = e.clientY; applyView();
+    const dx = e.clientX - lx, dy = e.clientY - ly;
+    if (!mode) {
+      const ax = Math.abs(e.clientX - sx), ay = Math.abs(e.clientY - sy);
+      if (Math.max(ax, ay) < 9) return;
+      mode = (ax >= ay || e.pointerType === 'mouse') ? 'rotate' : 'scroll';
+    }
+    if (mode === 'rotate') {
+      viewRY += dx * 0.55; viewRX -= dy * 0.55;
+      viewRX = Math.max(-88, Math.min(88, viewRX));
+      applyView();
+    } else {
+      window.scrollBy(0, -dy);
+    }
+    lx = e.clientX; ly = e.clientY;
   });
-  const end = (e) => { if (dragId === e.pointerId) dragId = null; };
+  const end = (e) => { if (dragId === e.pointerId) { dragId = null; mode = null; } };
   sc.addEventListener('pointerup', end); sc.addEventListener('pointercancel', end);
 })();
 /* ---- solving & playback ---- */
