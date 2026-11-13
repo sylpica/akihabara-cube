@@ -8,7 +8,8 @@
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { margin: 0; padding: 0; }
   body { font-family: "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Noto Sans JP", sans-serif; background: #14181f; color: #eef1f5; }
-  header { padding: 10px 12px 4px; text-align: center; }
+  header { padding: 10px 12px 4px; text-align: center; position: relative; z-index: 70; }
+  #btnBack { display: block; margin: 0 auto 2px 0; padding: 7px 12px; font-size: 13px; border-radius: 9px; border: 1px solid #39445a; background: #232c3e; color: #eef1f5; cursor: pointer; min-height: 38px; }
   header h1 { font-size: 19px; margin: 0; letter-spacing: .04em; }
   header p { margin: 2px 0 0; font-size: 12px; color: #9fb0c3; }
   .tabs { display: flex; gap: 4px; padding: 8px 8px 0; position: sticky; top: 0; background: #14181f; z-index: 30; overflow-x: auto; }
@@ -18,7 +19,7 @@
   section.tab { display: none; }
   section.tab.active { display: block; }
   /* ---- 3D scene ---- */
-  #scene { width: min(94vw, 400px); height: min(94vw, 400px); margin: 4px auto; perspective: 950px; touch-action: none; position: relative; }
+  #scene { width: min(94vw, 400px); height: min(94vw, 400px); margin: 4px auto; perspective: 950px; touch-action: pan-y; position: relative; }
   #cubeWrap { width: 100%; height: 100%; position: absolute; transform-style: preserve-3d; }
   #cube, .layer3d { position: absolute; inset: 0; transform-style: preserve-3d; }
   .sticker { position: absolute; left: 50%; top: 50%; border-radius: 7px; box-shadow: inset 0 0 0 2px rgba(10,10,14,.85); background-color: #20242c; background-repeat: no-repeat; backface-visibility: hidden; }
@@ -108,6 +109,7 @@
 </head>
 <body>
 <header>
+  <button id="btnBack" type="button">← 戻る</button>
   <h1>秋葉原キューブパズル ソルバー</h1>
   <p>絵柄キューブ（3×3×3）を、中心の絵の向きまでそろえて解きます</p>
 </header>
@@ -270,13 +272,31 @@ function tileBg(el, home, hrow, hcol, rot) {
   el.style.transform = rot ? `rotate(${rot * 90}deg)` : '';
 }
 /* ================= tabs ================= */
+const tabHistory = ['play'];
+let backNav = false;
 $('#tabbar').addEventListener('click', (e) => {
   const b = e.target.closest('button[data-tab]'); if (!b) return;
   $$('#tabbar button').forEach(x => x.classList.toggle('active', x === b));
   $$('section.tab').forEach(x => x.classList.toggle('active', x.id === 'tab-' + b.dataset.tab));
+  if (!backNav && tabHistory[tabHistory.length - 1] !== b.dataset.tab) tabHistory.push(b.dataset.tab);
   window.scrollTo(0, 0);
 });
 function gotoTab(name) { $(`#tabbar button[data-tab="${name}"]`).click(); }
+/* ---- back button: close sheet -> previous tab -> browser back ---- */
+$('#btnBack').addEventListener('click', () => {
+  const sheet = $('#sheet');
+  if (sheet && sheet.style.display === 'block') { sheet.style.display = 'none'; return; }
+  if (tabHistory.length > 1) {
+    tabHistory.pop();
+    backNav = true;
+    gotoTab(tabHistory[tabHistory.length - 1]);
+    backNav = false;
+  } else if (document.referrer && window.history.length > 1) {
+    window.history.back();
+  } else {
+    gotoTab('play');
+  }
+});
 </script>
 <script>
 'use strict';
@@ -338,6 +358,7 @@ function rotAxisAngle(v, axis, ang) {
   ];
 }
 let animating = false;
+let stateGen = 0; // bumped whenever the cube state is replaced; stale animation callbacks check it before mutating state
 function animateMove(face, power, dur, done) {
   const n = POS_NORMAL[face];
   const layer = document.createElement('div');
@@ -371,9 +392,11 @@ function animateMove(face, power, dur, done) {
 }
 function doMove(m, record = true, animate = true) {
   if (animating) return;
-  const apply = () => { cube.applyMove(m.face, m.power); renderCube(); };
   if (record) { history.push(m); future = []; }
-  if (animate) animateMove(m.face, m.power, 190, apply); else apply();
+  if (animate) {
+    const gen = stateGen;
+    animateMove(m.face, m.power, 190, () => { if (gen === stateGen) { cube.applyMove(m.face, m.power); renderCube(); } });
+  } else { cube.applyMove(m.face, m.power); renderCube(); }
   clearSolutionIfManual();
 }
 function clearSolutionIfManual() { /* manual moves invalidate a loaded solution playback */ 
@@ -396,17 +419,17 @@ function clearSolutionIfManual() { /* manual moves invalidate a loaded solution 
     g.appendChild(row); pad.appendChild(g);
   }
 })();
-$('#btnReset').addEventListener('click', () => { stopPlayback(); cube = CubeState.solved(); history = []; future = []; solution = null; $('#solPanel').classList.add('hidden'); renderCube(); $('#playStatus').textContent = ''; });
+$('#btnReset').addEventListener('click', () => { stopPlayback(); stateGen++; cube = CubeState.solved(); history = []; future = []; solution = null; $('#solPanel').classList.add('hidden'); renderCube(); $('#playStatus').textContent = ''; });
 $('#btnScramble').addEventListener('click', () => {
   stopPlayback();
   const F = 'UDFBLR'; const moves = []; let last = '';
   for (let i = 0; i < 25; i++) { let f; do { f = F[Math.floor(Math.random() * 6)]; } while (f === last); last = f; moves.push({ face: f, power: 1 + Math.floor(Math.random() * 3) }); }
-  cube = CubeState.solved(); history = []; future = []; solution = null; $('#solPanel').classList.add('hidden');
+  stateGen++; cube = CubeState.solved(); history = []; future = []; solution = null; $('#solPanel').classList.add('hidden');
   for (const m of moves) { cube.applyMove(m.face, m.power); history.push(m); }
   renderCube(); $('#playStatus').textContent = 'シャッフルしました';
 });
-$('#btnUndo').addEventListener('click', () => { stopPlayback(); const m = history.pop(); if (!m) return; future.push(m); cube.applyMove(m.face, (4 - m.power) % 4); renderCube(); });
-$('#btnRedo').addEventListener('click', () => { stopPlayback(); const m = future.pop(); if (!m) return; history.push(m); cube.applyMove(m.face, m.power); renderCube(); });
+$('#btnUndo').addEventListener('click', () => { if (animating) return; stopPlayback(); stateGen++; const m = history.pop(); if (!m) return; future.push(m); cube.applyMove(m.face, (4 - m.power) % 4); renderCube(); });
+$('#btnRedo').addEventListener('click', () => { if (animating) return; stopPlayback(); stateGen++; const m = future.pop(); if (!m) return; history.push(m); cube.applyMove(m.face, m.power); renderCube(); });
 /* ---- drag rotate ---- */
 (function drag() {
   const sc = $('#scene'); let dragId = null, lx = 0, ly = 0;
@@ -438,6 +461,7 @@ $('#btnSolve').addEventListener('click', () => {
   }, 60);
 });
 function loadSolution(baseState, res) {
+  stateGen++;
   solution = { base: baseState, moves: res.moves, posCount: res.positionMoves, fixCount: res.centreFixMoves };
   solIdx = 0;
   cube = baseState.clone();
@@ -472,11 +496,13 @@ function stateAt(idx) {
 function gotoStep(idx, animate = false) {
   if (!solution) return;
   idx = Math.max(0, Math.min(solution.moves.length, idx));
+  stateGen++;
   if (animate && Math.abs(idx - solIdx) === 1) {
+    const gen = stateGen;
     const forward = idx > solIdx;
     const m = forward ? solution.moves[solIdx] : { face: solution.moves[solIdx - 1].face, power: (4 - solution.moves[solIdx - 1].power) % 4 };
     playbackLock = true;
-    animateMove(m.face, m.power, 200, () => { solIdx = idx; cube = stateAt(solIdx); renderCube(); updatePlaybackUI(); playbackLock = false; });
+    animateMove(m.face, m.power, 200, () => { if (gen !== stateGen) { playbackLock = false; return; } solIdx = idx; cube = stateAt(solIdx); renderCube(); updatePlaybackUI(); playbackLock = false; });
   } else {
     solIdx = idx; cube = stateAt(solIdx); renderCube(); updatePlaybackUI();
   }
@@ -595,7 +621,7 @@ function makeReview(netEl, opts) {
     return { fc };
   };
   R.checkAndApply = function (errEl, okEl, applyBtn) {
-    const show = (el, txt) => { errEl.style.display = txt ? 'block' : 'none'; errEl.textContent = txt || ''; };
+    const show = (txt) => { errEl.style.display = txt ? 'block' : 'none'; errEl.textContent = txt || ''; };
     const showOk = (txt) => { okEl.style.display = txt ? 'block' : 'none'; okEl.textContent = txt || ''; };
     show(null); showOk(null);
     const col = R.collect();
