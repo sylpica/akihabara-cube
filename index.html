@@ -25,10 +25,13 @@
   .modebtn { flex: 1; max-width: 190px; padding: 9px 6px; font-size: 13.5px; border-radius: 9px; border: 1px solid #39445a; background: #1d2432; color: #cfd9e6; cursor: pointer; min-height: 42px; }
   .modebtn.active { background: #2b6cb0; border-color: #2b6cb0; color: #fff; font-weight: 700; }
   /* ---- 3D scene ---- */
-  #scene { width: min(94vw, 400px); height: min(94vw, 400px); margin: 4px auto; perspective: 950px; touch-action: none; position: relative; }
+  #scene { width: min(96vw, 420px); height: min(96vw, 420px); margin: 4px auto; perspective: 950px; touch-action: none; position: relative; }
   #cubeWrap { width: 100%; height: 100%; position: absolute; transform-style: preserve-3d; }
   #cube, .layer3d { position: absolute; inset: 0; transform-style: preserve-3d; }
   .sticker { position: absolute; left: 50%; top: 50%; border-radius: 7px; overflow: hidden; box-shadow: inset 0 0 0 2px rgba(10,10,14,.85); background-color: #20242c; background-repeat: no-repeat; }
+  /* seam frame above the sprite image (the sticker's own inset shadow is
+     painted under the <img>, so the black grid of the real cube was lost) */
+  .sticker::after { content: ""; position: absolute; inset: 0; border-radius: 7px; box-shadow: inset 0 0 0 2px rgba(8,8,12,.92), inset 0 0 0 3px rgba(255,255,255,.05); pointer-events: none; }
   .viewbtns, .btnrow { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin: 8px 0; }
   button.btn { padding: 9px 12px; font-size: 14px; border-radius: 9px; border: 1px solid #39445a; background: #232c3e; color: #eef1f5; cursor: pointer; min-height: 42px; }
   button.btn:active { transform: scale(.97); }
@@ -339,7 +342,13 @@ function viewMatrix() {
 }
 function setViewTransform() {
   const w = $('#cubeWrap');
-  w.style.transform = `rotateX(${viewRX}deg) rotateY(${viewRY}deg) scale(${viewFit})`;
+  // A single hand-built matrix3d, not rotateX()/rotateY()/scale(): at view
+  // angles of exactly +/-90 degrees some browser compositors mis-decompose
+  // the function list and apply the scale to only one axis, which rendered
+  // straight-on faces as rectangles (wider or taller than square).
+  const vm = viewMatrix(), f = viewFit;
+  const cB = vm.cRY, sB = vm.sRY, cA = vm.cRX, sA = vm.sRX;
+  w.style.transform = `matrix3d(${cB * f},${sA * sB * f},${-cA * sB * f},0, 0,${cA * f},${sA * f},0, ${sB * f},${-sA * cB * f},${cA * cB * f},0, 0,0,0,1)`;
   // Hide stickers facing away from the viewer in JS. Some mobile browsers
   // mis-handle backface-visibility inside preserve-3d and paint whole faces
   // dark, so visibility is decided here from the element's own matrix.
@@ -371,13 +380,16 @@ function analyticFit() {
   } catch (e) { return 1; }
 }
 function correctFit() {
-  // The analytic estimate alone does not match the rendered size exactly, so
-  // measure the actual stickers and shrink until the cube sits inside the
-  // scene and never covers the surrounding menus.
+  // Fit by direct measurement only. The rendered size does not scale
+  // linearly with viewFit (perspective), so a one-shot proportional
+  // correction overshoots and shrinks the cube far more than needed;
+  // iterate with damping until the measured bounds sit just inside the
+  // scene. The analytic projection is only a seed: it underestimates the
+  // rendered size by up to ~12% at diagonal angles.
   const sc = $('#scene'); if (!sc) return;
   const sr = sc.getBoundingClientRect();
   const cx = sr.left + sr.width / 2, cy = sr.top + sr.height / 2;
-  for (let i = 0; i < 5; i++) {
+  const measure = () => {
     let L = 1e9, R = -1e9, T = 1e9, B = -1e9, any = false;
     for (const el of $$('#cube .sticker')) {
       if (el.style.display === 'none') continue;
@@ -386,15 +398,28 @@ function correctFit() {
       any = true;
       L = Math.min(L, q.left); R = Math.max(R, q.right); T = Math.min(T, q.top); B = Math.max(B, q.bottom);
     }
-    if (!any) return;
-    const need = Math.min((sr.width / 2) / Math.max(R - cx, cx - L), (sr.height / 2) / Math.max(B - cy, cy - T));
-    if (need >= 0.999) return;
-    viewFit *= need * 0.99;
+    if (!any) return null;
+    return Math.min(sr.width / (Math.max(R - cx, cx - L) * 2), sr.height / (Math.max(B - cy, cy - T) * 2));
+  };
+  for (let i = 0; i < 10; i++) {
+    const ratio = measure();
+    if (ratio === null) return;
+    const target = ratio / 0.995; // aim for bounds at 99.5% of the scene
+    if (target >= 0.99 && target <= 1.01) return;
+    const step = Math.min(1.3, Math.max(0.7, Math.pow(target, 0.7)));
+    viewFit *= step;
+    setViewTransform();
+  }
+  // safety: never leave the cube sticking out of the scene
+  for (let i = 0; i < 4; i++) {
+    const ratio = measure();
+    if (ratio === null || ratio >= 0.995) return;
+    viewFit *= ratio * 0.99;
     setViewTransform();
   }
 }
 function applyView(correct = true) {
-  viewFit = analyticFit();
+  viewFit = analyticFit() * 0.85;
   setViewTransform();
   if (correct) correctFit();
 }
@@ -543,7 +568,7 @@ $('#modeScroll').addEventListener('click', () => setDragMode('scroll'));
   sc.addEventListener('pointermove', (e) => {
     if (dragId !== e.pointerId) return;
     viewRY += (e.clientX - lx) * 0.55; viewRX -= (e.clientY - ly) * 0.55;
-    lx = e.clientX; ly = e.clientY; applyView(false);
+    lx = e.clientX; ly = e.clientY; setViewTransform(); // keep the resting size while dragging; exact fit is restored on release
   });
   const end = (e) => { if (dragId === e.pointerId) { dragId = null; applyView(); } };
   sc.addEventListener('pointerup', end); sc.addEventListener('pointercancel', end);
