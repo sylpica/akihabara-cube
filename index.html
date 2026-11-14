@@ -376,6 +376,7 @@ $('#tabbar').addEventListener('click', (e) => {
   if (!backNav && tabHistory[tabHistory.length - 1] !== b.dataset.tab) tabHistory.push(b.dataset.tab);
   window.scrollTo(0, 0);
   if (mode !== 'photo') stopCamera();
+  if (mode === 'photo' && typeof updateCapUI === 'function') updateCapUI();
 });
 function gotoTab(name) { $(`#tabbar button[data-tab="${name}"]`).click(); }
 /* ---- back button: close sheet -> previous tab -> browser back ---- */
@@ -1094,7 +1095,7 @@ const photoReview = makeReview($('[data-net="photo"]'), { allowClear: true, phot
 const CAP_STEPS = [
   { pos: 'F', title: '1/6 正面（中心：モモーイ時計）', desc: '面は「中心タイル」で見分けます。シャッフルされた状態では周りのタイルはバラバラですが、中心タイルは面ごとに決まっていて動きません。中心に「モモーイ時計」の文字がある面を正面にし、文字が逆さまにならない向きで撮ってください（多少回って写っても、読み取りのときに自動で向きを直します）。黄色い枠に面をぴったり合わせ、真っ正面から撮ってください。' },
   { pos: 'R', title: '2/6 右面（中心：あっとほぉーむカフェ）', desc: '中心に「あっとほぉーむカフェ」の文字がある面を正面にし、文字がまっすぐ読める向きで撮ってください（多少回って写っても自動で直します）。' },
-  { pos: 'B', title: '3/6 背面（中心：ヨドバシカメラ）', desc: '中心に「ヨドバシカメラ マルチメディアAkiba」の文字がある面を正面にし、文字がまっすぐ読める向きで撮ってください（多少回って写っても自動で直します）。' },
+  { pos: 'B', title: '3/6 背面（中心：昭和通り）', desc: '中心に縦書きの「昭和通り」の文字がある面（背面）を正面にし、「昭和通り」が上から下へ読める向きで撮ってください（多少回って写っても自動で直します）。面の上部に「ヨドバシカメラ マルチメディアAkiba」、下部に「書泉ブックタワー」の文字があります。' },
   { pos: 'L', title: '4/6 左面（中心：神田川）', desc: '中心を斜めに神田川が流れる面を正面にしてください。文字の目印がない面なので、どの向きで撮っても大丈夫です（向きは自動で直します）。' },
   { pos: 'U', title: '5/6 上面（中心：秋葉原UDX）', desc: '中心に「秋葉原UDX」の文字と緑のビルがある面を正面にし、ビルがまっすぐ立つ向き（文字が読める向き）で撮ってください。' },
   { pos: 'D', title: '6/6 底面（中心：ハードオフ）', desc: '最後に、中心に「ハードオフ」の文字がある面（底面）を撮ります。キューブを裏返してその面をこちらへ向け、文字がまっすぐ読める向きで撮ってください。絵柄の中心の向きまで正確に読むため、底面も直接撮ります。' },
@@ -1126,6 +1127,18 @@ function stopCamera() {
   v.srcObject = null; v.classList.add('hidden');
   if (!loadedImage) showCamHint();
 }
+const waitMs = ms => new Promise(r => setTimeout(r, ms));
+/* play() can stay pending indefinitely on some WKWebView states; never let
+   it wedge a handler — race it with a timeout. */
+async function playVideo(v) { try { await Promise.race([v.play(), waitMs(1200)]); } catch (e) {} }
+/* A shot may only be taken from a preview that is actually showing live
+   frames: stream live, element playing, real (non-black) pixels. */
+function previewIsLive(v) {
+  if (!stream || !v.videoWidth || v.paused) return false;
+  const t = stream.getVideoTracks()[0];
+  if (!t || t.readyState !== 'live') return false;
+  return !frameIsBlack(v);
+}
 let camStartPromise = null;
 function startCamera() {
   if (camStartPromise) return camStartPromise; // concurrent presses share one start
@@ -1134,7 +1147,7 @@ function startCamera() {
 }
 async function startCameraInner() {
   const v = $('#camVideo');
-  if (stream) { v.classList.remove('hidden'); $('#camHint').classList.add('hidden'); $('#camImg').classList.add('hidden'); if (v.paused) { try { await v.play(); } catch (e) {} } return true; }
+  if (stream) { v.classList.remove('hidden'); $('#camHint').classList.add('hidden'); $('#camImg').classList.add('hidden'); if (v.paused) await playVideo(v); return true; }
   const epoch = camEpoch;
   // Show the video element BEFORE the stream attaches: in WKWebView a video
   // that is display:none when srcObject is set may never paint frames -- the
@@ -1145,12 +1158,23 @@ async function startCameraInner() {
   // opening this video-only capture.
   try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}
   let s = null;
+  // getUserMedia can stay pending forever in an in-app browser whose host
+  // never answers the permission request; race it with a timeout so the
+  // shoot button can never wedge in its in-flight state.
+  const gumPromise = navigator.mediaDevices.getUserMedia({
+    video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1920 } },
+    audio: false,
+  });
   try {
-    s = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1920 } },
-      audio: false,
-    });
+    s = await Promise.race([gumPromise, waitMs(8000).then(() => null)]);
   } catch (e) { v.classList.add('hidden'); if (!loadedImage) showCamHint(); return false; }
+  if (!s) {
+    // Timed out: if the platform grants the camera later anyway, close it
+    // immediately so it never runs unobserved.
+    gumPromise.then(late => { try { late.getTracks().forEach(t => t.stop()); } catch (e) {} }, () => {});
+    v.classList.add('hidden'); if (!loadedImage) showCamHint();
+    return false;
+  }
   if (epoch !== camEpoch) {
     // stopCamera() ran (or the tab was left) while the request was pending:
     // never let the camera end up running invisibly behind another tab.
@@ -1160,10 +1184,8 @@ async function startCameraInner() {
   }
   stream = s;
   v.muted = true; v.playsInline = true; v.srcObject = stream;
-  try {
-    await new Promise(res => { if (v.readyState >= 2) res(); else { v.addEventListener('loadedmetadata', res, { once: true }); setTimeout(res, 1500); } });
-    await v.play();
-  } catch (e) { /* if play() is refused the stream can still be captured */ }
+  await new Promise(res => { if (v.readyState >= 2) res(); else { v.addEventListener('loadedmetadata', res, { once: true }); setTimeout(res, 1500); } });
+  await playVideo(v);
   // ask for continuous autofocus where the platform supports it (recent iOS
   // Safari honours focusMode; elsewhere this is a no-op)
   try {
@@ -1174,17 +1196,18 @@ async function startCameraInner() {
     }
   } catch (e) { /* focus stays at the platform default */ }
   // Paint check: if frames are not reaching the element, re-attach once;
-  // if it is still black, say so (capturing still works). Guarded by the
-  // stream identity so a stale timer can never touch a newer stream.
+  // if it is still black, say so honestly -- with the separated shoot
+  // button a black preview now REFUSES to capture. Guarded by the stream
+  // identity so a stale timer can never touch a newer stream.
   const myStream = stream;
   setTimeout(async () => {
-    if (stream !== myStream || !frameIsBlack(v)) return;
-    try { v.pause(); v.srcObject = null; await new Promise(r => setTimeout(r, 80)); if (stream !== myStream) return; v.srcObject = stream; await v.play(); } catch (e) {}
+    if (!myStream || stream !== myStream || !frameIsBlack(v)) return;
+    try { v.pause(); v.srcObject = null; await waitMs(80); if (stream !== myStream) return; v.srcObject = stream; await playVideo(v); } catch (e) {}
     setTimeout(() => {
       if (stream !== myStream || !frameIsBlack(v)) return;
       v.classList.add('hidden');
       const h = $('#camHint');
-      h.innerHTML = 'プレビューが映っていません（真っ黒なまま）。そのまま「📷 撮影する」で撮影はできます。映したいときは、一度ほかのタブに切り替えてから戻ってください。';
+      h.innerHTML = 'プレビューが映っていません（真っ黒なまま）。この状態では撮影できません。一度ほかのタブに切り替えてから戻るか、下の「📄 画像ファイルから選ぶ」をお試しください。';
       h.classList.remove('hidden');
     }, 700);
   }, 900);
@@ -1199,18 +1222,22 @@ function updateCapUI() {
   const selCaptured = !!captures[step.pos];
   if (done >= total && capPicked && selCaptured) {
     $('#capTitle').textContent = '撮り直し：' + step.title.split(' ').slice(1).join(' ');
-    $('#capDesc').textContent = 'この面は撮影済みです。キューブのその面をカメラに向けて「📷 撮影する」を押すと撮り直せます。別の面はサムネイルで選んでください。';
+    $('#capDesc').textContent = (capNote ? capNote + ' ' : '') + 'この面は撮影済みです。キューブのその面をカメラに向けて「📷 撮影する」を押すと撮り直せます。別の面はサムネイルで選んでください。';
   } else if (done >= total) {
     $('#capTitle').textContent = total + '面そろいました';
     $('#capDesc').textContent = (capNote ? capNote + ' ' : '') + '「読み取り結果を確認する」を押してください。撮り直したい面は、下のサムネイルで選んでから撮影します。';
   } else if (selCaptured) {
     $('#capTitle').textContent = '撮り直し：' + step.title.split(' ').slice(1).join(' ');
-    $('#capDesc').textContent = 'この面は撮影済みです。キューブのその面をカメラに向けて「📷 撮影する」を押すと撮り直せます。別の面はサムネイルで選んでください。';
+    $('#capDesc').textContent = (capNote ? capNote + ' ' : '') + 'この面は撮影済みです。キューブのその面をカメラに向けて「📷 撮影する」を押すと撮り直せます。別の面はサムネイルで選んでください。';
   } else {
     $('#capTitle').textContent = step.title;
-    $('#capDesc').textContent = step.desc;
+    $('#capDesc').textContent = (capNote ? capNote + ' ' : '') + step.desc;
   }
   $('#btnAnalyse').disabled = done < total;
+  // The button's job differs by state: with no camera running and no file
+  // image loaded, the press starts the camera (and asks permission); only
+  // with a live preview does it take the photo.
+  $('#btnShot').textContent = (!stream && !loadedImage) ? '📷 カメラを起動する' : '📷 撮影する';
   const th = $('#capThumbs'); th.innerHTML = '';
   CAP_STEPS.forEach((s2, i) => {
     const d = document.createElement('div'); d.className = 'thumb' + (i === capStep ? ' cur' : '');
@@ -1242,15 +1269,36 @@ $('#btnShot').addEventListener('click', async () => {
     // deliver new frames; drop it so a fresh camera starts below.
     if (stream && stream.getVideoTracks().every(t => t.readyState !== 'live')) stopCamera();
     if (!stream && !loadedImage) {
+      // The first press only STARTS the camera — it is also the press that
+      // triggers the permission prompt, so it must never capture. The user
+      // shoots only once they can see the face in the preview (user report
+      // 2026-11-15: pressing to grant permission took a photo).
       const ok = await startCamera();
-      if (!ok && !loadedImage) { if (document.body.dataset.mode === 'photo') $('#fileInput').click(); return; }
+      if (!ok) { if (document.body.dataset.mode === 'photo') $('#fileInput').click(); return; }
+      capNote = 'カメラが起動しました。面を枠に合わせて、プレビューに映ったらもう一度「📷 撮影する」を押してください。';
+      updateCapUI();
+      return;
     }
     if (stream) {
-      // iOS pauses the video element around system dialogs (e.g. the reset
-      // confirm); a paused element would otherwise keep "capturing" the
-      // same frozen frame and the preview would look frozen (user report).
+      // Never capture from a preview that is not showing live frames: a
+      // black or frozen preview cannot produce a usable photo (user
+      // report 2026-11-15). Resume playback first (iOS pauses the element
+      // around system dialogs), then verify real frames; if verification
+      // fails, re-attach the stream once and verify again.
       v.classList.remove('hidden'); $('#camHint').classList.add('hidden'); $('#camImg').classList.add('hidden');
-      if (v.paused) { try { await v.play(); } catch (e) {} }
+      if (v.paused) await playVideo(v);
+      if (!previewIsLive(v)) {
+        try {
+          v.pause(); v.srcObject = null;
+          await waitMs(120);
+          if (stream) { v.srcObject = stream; await playVideo(v); await waitMs(400); }
+        } catch (e) {}
+      }
+      if (!previewIsLive(v)) {
+        capNote = 'プレビューが映っていないので撮影しませんでした。画面に面が映ってから、もう一度「📷 撮影する」を押してください。';
+        updateCapUI();
+        return;
+      }
     }
     const wasRetake = !!captures[pos];
     if (stream && v.videoWidth) captures[pos] = captureFrom(v, v.videoWidth, v.videoHeight);
@@ -1409,30 +1457,58 @@ function cellBaseFeatures(canvas48) {
   return { hist, std: cv };
 }
 function fullCellScore(cap, ox, oy, size, cells, fast) {
-  // summed best full-feature score over the 8 outer cells (centre excluded:
-  // it barely moves with alignment). Peaks sharply at the true alignment,
-  // unlike colour histograms, which stay flat under shifted light.
+  // Assignment score over the given cells (default the 8 outer cells;
+  // centre excluded: it barely moves with alignment): each cell's best
+  // score per tile is computed, then a greedy one-to-one assignment (each
+  // tile used at most once, as in the real matcher) is summed. A plain
+  // sum of per-cell bests has a degenerate failure on real photos: an
+  // oversized sampling makes every cell feature-rich (neighbour text
+  // bleeds in), so several cells all "match" the same few text-heavy
+  // tiles and the oversized framing out-scores the true one. The
+  // assignment form peaks at the true alignment because only there do
+  // the cells match DISTINCT tiles well. (Measured 2026-11-15: photos2
+  // face A peaked at size 306 under the plain sum; its true size is 279.)
   const CELLS = cells || [[0, 0], [0, 1], [0, 2], [1, 0], [1, 2], [2, 0], [2, 1], [2, 2]];
-  let tot = 0;
+  const keys = Object.keys(refTiles);
+  const rows = [];
   for (const [r, c] of CELLS) {
     const cv = cellCanvas(cap, ox, oy, size, r, c, 48);
     const base = cellBaseFeatures(cv);
-    let best = -1;
+    const row = new Float32Array(keys.length).fill(-1);
     for (let k = 0; k < 4; k++) {
       const gray = grayVec(rotateCanvas48(base.std, k), fast ? 12 : 24);
-      for (const key of Object.keys(refTiles)) {
-        const t = refTiles[key];
+      for (let ti = 0; ti < keys.length; ti++) {
+        const t = refTiles[keys[ti]];
         const sc = scoreFeat({ hist: base.hist, gray }, fast ? { hist: t.feat.hist, gray: t.feat.gray12 } : t.feat);
-        if (sc > best) best = sc;
+        if (sc > row[ti]) row[ti] = sc;
       }
     }
-    tot += best;
+    rows.push(row);
+  }
+  const pairs = [];
+  for (let ci = 0; ci < rows.length; ci++) for (let ti = 0; ti < keys.length; ti++) pairs.push([rows[ci][ti], ci, ti]);
+  pairs.sort((a, b) => b[0] - a[0]);
+  const usedC = new Set(), usedT = new Set();
+  let tot = 0;
+  for (const [sc, ci, ti] of pairs) {
+    if (usedC.has(ci) || usedT.has(ti)) continue;
+    usedC.add(ci); usedT.add(ti); tot += sc;
+    if (usedC.size === rows.length) break;
   }
   return tot;
 }
 /* The cube rarely fills the frame exactly: search the face's size and
    offset with the full matching score, and only move off the exact-thirds
    framing when the improvement is clear. */
+function rotateCap(cap, deg) {
+  // Rotate a capture by a small angle about its centre. The corners are
+  // pre-filled with a zoomed copy so no void wedges appear.
+  const cv = document.createElement('canvas'); cv.width = cv.height = 300;
+  const ctx = cv.getContext('2d');
+  ctx.drawImage(cap, -66, -66, 432, 432);
+  ctx.save(); ctx.translate(150, 150); ctx.rotate(deg * Math.PI / 180); ctx.drawImage(cap, -150, -150); ctx.restore();
+  return cv;
+}
 function estimateAlign(cap) {
   const idSc = fullCellScore(cap, 0, 0, 300);
   // A well-framed capture scores high at the identity alignment; only pay
@@ -1440,55 +1516,109 @@ function estimateAlign(cap) {
   if (idSc >= 7.25) return { ox: 0, oy: 0, size: 300 };
   /* The matcher objective peaks sharply at the TRUE alignment (measured:
      truth 6.6-7.9 vs wrong basins 5.7-7.2), so this is a search problem,
-     not a scoring problem. Cover sizes 228-300 (a face filling only ~76%
-     of the frame still reads) and offsets to +-24px, rank coarsely on 6
-     cells, then refine several basins -- a single greedy refine walks
-     into the wrong basin on faces with self-similar map tiles. */
+     not a scoring problem. Handheld shots combine three errors at once --
+     shift, scale and a few degrees of tilt. The tilt is chosen by a
+     JOINT coarse pass (each angle gets its own best shift/scale, so a
+     shift cannot mask the angle the way an identity-only pre-screen did:
+     that read tilt+shift at 13.9%), then a FINE shift/scale search runs
+     fully on the top-voted angles, and the full 8-cell score
+     adjudicates. Finally the angle is micro-probed +-1.5 degrees
+     around the winner. */
   const SIX = [[0, 0], [0, 1], [0, 2], [2, 0], [2, 1], [2, 2]];
   const FOUR = [[0, 0], [0, 2], [2, 0], [2, 2]];
-  const coarse = [];
-  for (const size of [300, 288, 276, 264, 252, 240, 228]) {
-    for (const dx of [-24, -12, 0, 12, 24]) for (const dy of [-24, -12, 0, 12, 24]) {
-      const ox = (300 - size) / 2 + dx, oy = (300 - size) / 2 + dy;
-      coarse.push({ ox, oy, size, sc: fullCellScore(cap, ox, oy, size, FOUR, true) });
-    }
-  }
-  coarse.sort((a, b) => b.sc - a.sc);
-  // Search stages run on the fast (12x12 pattern) score over a cell
-  // subset; every refined candidate is re-scored once with the full
-  // 8-cell score before it can win.
-  const refine = (cand) => {
-    let cur = { ox: cand.ox, oy: cand.oy, size: cand.size, sc: fullCellScore(cap, cand.ox, cand.oy, cand.size, SIX, true) };
-    for (const [step, rad] of [[3, 6], [1, 2]]) {
-      for (let dx = -rad; dx <= rad; dx += step) for (let dy = -rad; dy <= rad; dy += step) {
-        if (!dx && !dy) continue;
-        const sc = fullCellScore(cap, cur.ox + dx, cur.oy + dy, cur.size, SIX, true);
-        if (sc > cur.sc) cur = { ox: cur.ox + dx, oy: cur.oy + dy, size: cur.size, sc };
+  const ANGS = [-6, -3, 0, 3, 6];
+  const ZERO = 2; // index of angle 0
+  const caps = ANGS.map(a => a === 0 ? cap : rotateCap(cap, a));
+  // joint coarse pass: best score per angle
+  const bestPerAngle = ANGS.map(() => -1);
+  ANGS.forEach((deg, ai) => {
+    for (const size of [300, 276, 252, 228]) {
+      for (const dx of [-24, 0, 24]) for (const dy of [-24, 0, 24]) {
+        const ox = (300 - size) / 2 + dx, oy = (300 - size) / 2 + dy;
+        const sc = fullCellScore(caps[ai], ox, oy, size, FOUR, true);
+        if (sc > bestPerAngle[ai]) bestPerAngle[ai] = sc;
       }
     }
-    return { ...cur, sc: fullCellScore(cap, cur.ox, cur.oy, cur.size) };
+  });
+  // The coarse vote cannot always separate neighbouring angles when a
+  // shift is also present (measured: -3 beat the true -6 in the vote,
+  // while the fine full score at truth was 7.41 vs 6.53), so the fine
+  // search runs FULLY on the top TWO voted angles plus angle 0,
+  // adjudicated by the full score, stopping early on a decisive peak.
+  // (Trimming this -- fewer grid sizes, fewer refined basins, reduced
+  // adjudication searches -- measurably broke tilt+shift and large
+  // shifts; the expensive form is the correct one.)
+  const voteOrder = ANGS.map((a, ai) => ai).sort((x, y) => bestPerAngle[y] - bestPerAngle[x]);
+  const searchOrder = voteOrder.slice(0, 2);
+  if (!searchOrder.includes(ZERO)) searchOrder.push(ZERO);
+  // fine shift/scale search on one canvas (the v4-proven grid), with a
+  // size walk added to the refine so an off-grid seed size still lands.
+  const fineSearch = (cv) => {
+    const idCv = fullCellScore(cv, 0, 0, 300);
+    const coarse = [];
+    for (const size of [300, 288, 276, 264, 252, 240, 228]) {
+      for (const dx of [-24, -12, 0, 12, 24]) for (const dy of [-24, -12, 0, 12, 24]) {
+        const ox = (300 - size) / 2 + dx, oy = (300 - size) / 2 + dy;
+        coarse.push({ ox, oy, size, sc: fullCellScore(cv, ox, oy, size, FOUR, true) });
+      }
+    }
+    coarse.sort((a, b) => b.sc - a.sc);
+    const refine = (cand) => {
+      let cur = { ox: cand.ox, oy: cand.oy, size: cand.size, sc: fullCellScore(cv, cand.ox, cand.oy, cand.size, SIX, true) };
+      const walk = (step, rad) => {
+        for (let dx = -rad; dx <= rad; dx += step) for (let dy = -rad; dy <= rad; dy += step) {
+          if (!dx && !dy) continue;
+          const sc = fullCellScore(cv, cur.ox + dx, cur.oy + dy, cur.size, SIX, true);
+          if (sc > cur.sc) cur = { ox: cur.ox + dx, oy: cur.oy + dy, size: cur.size, sc };
+        }
+      };
+      walk(3, 6); walk(1, 2);
+      for (const ds of [-12, -6, 6, 12]) {
+        const size = cur.size + ds;
+        if (size < 220 || size > 306) continue;
+        const sc = fullCellScore(cv, cur.ox - ds / 2, cur.oy - ds / 2, size, SIX, true);
+        if (sc > cur.sc) { cur = { ox: cur.ox - ds / 2, oy: cur.oy - ds / 2, size, sc }; walk(1, 2); }
+      }
+      return { ...cur, sc: fullCellScore(cv, cur.ox, cur.oy, cur.size) };
+    };
+    let best = { ox: 0, oy: 0, size: 300, sc: idCv };
+    const shortlist = [];
+    for (const cand of coarse) {
+      if (shortlist.length >= 5) break;
+      if (shortlist.some(p => Math.abs(p.ox - cand.ox) <= 12 && Math.abs(p.oy - cand.oy) <= 12 && Math.abs(p.size - cand.size) <= 12)) continue;
+      shortlist.push(cand);
+    }
+    for (const cand of shortlist) {
+      if (cand.ox === 0 && cand.oy === 0 && cand.size === 300) continue;
+      const r = refine(cand);
+      if (r.sc > best.sc) best = r;
+    }
+    for (const ds of [-6, 6]) {
+      const size = best.size + ds;
+      if (size < 220 || size > 306) continue;
+      const sc = fullCellScore(cv, best.ox - ds / 2, best.oy - ds / 2, size);
+      if (sc > best.sc) best = { ox: best.ox - ds / 2, oy: best.oy - ds / 2, size, sc };
+    }
+    return best;
   };
-  let best = { ox: 0, oy: 0, size: 300, sc: idSc };
-  const shortlist = [];
-  for (const cand of coarse) {
-    if (shortlist.length >= 5) break;
-    if (shortlist.some(p => Math.abs(p.ox - cand.ox) <= 12 && Math.abs(p.oy - cand.oy) <= 12 && Math.abs(p.size - cand.size) <= 12)) continue;
-    shortlist.push(cand);
-  }
-  for (const cand of shortlist) {
-    if (cand.ox === 0 && cand.oy === 0 && cand.size === 300) continue;
-    const r = refine(cand);
-    if (r.sc > best.sc) best = r;
-  }
-  // size probe around the winner (keeps the face centre fixed)
-  for (const ds of [-6, 6]) {
-    const size = best.size + ds;
-    if (size < 220 || size > 306) continue;
-    const sc = fullCellScore(cap, best.ox - ds / 2, best.oy - ds / 2, size);
-    if (sc > best.sc) best = { ox: best.ox - ds / 2, oy: best.oy - ds / 2, size, sc };
+  let best = null;
+  for (const ai of searchOrder) {
+    const r = fineSearch(caps[ai]);
+    if (!best || r.sc > best.sc) best = { ai, ...r };
+    if (best.sc >= 7.3) break; // decisive peak found
   }
   if (best.sc < idSc + 0.1) return { ox: 0, oy: 0, size: 300 };
-  return best;
+  // angle micro-probe: the true tilt may sit between grid angles
+  let deg = ANGS[best.ai];
+  for (const dd of [-1.5, 1.5]) {
+    const nd = deg + dd;
+    if (Math.abs(nd) > 7.5) continue;
+    const sc = fullCellScore(rotateCap(cap, nd), best.ox, best.oy, best.size);
+    if (sc > best.sc) { best = { ...best, sc }; deg = nd; }
+  }
+  const out = { ox: best.ox, oy: best.oy, size: best.size };
+  if (deg) out.rot = deg;
+  return out;
 }
 /* Source cell of corrected cell (r, c) when the whole photo was rotated
    g*90 degrees clockwise relative to the expected orientation. */
@@ -1562,11 +1692,12 @@ async function analyseCaptures() {
     const pos = step.pos;
     const cap = captures[pos];
     const al = estimateAlign(cap);
+    const capA = al.rot ? rotateCap(cap, al.rot) : cap;
     cellLists[pos] = [];
     for (let r = 0; r < 3; r++) {
       cellLists[pos][r] = [];
       for (let c = 0; c < 3; c++) {
-        const cellCv = cellCanvas(cap, al.ox, al.oy, al.size, r, c, 48);
+        const cellCv = cellCanvas(capA, al.ox, al.oy, al.size, r, c, 48);
         const feats = [0, 1, 2, 3].map(k => featuresOf(rotateCanvas48(cellCv, k)));
         const list = [];
         for (const key of Object.keys(refTiles)) {
