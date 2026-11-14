@@ -375,6 +375,7 @@ $('#tabbar').addEventListener('click', (e) => {
   if ((mode === 'play' || mode === 'solve') && typeof calibrateFixedFit === 'function') requestAnimationFrame(() => calibrateFixedFit());
   if (!backNav && tabHistory[tabHistory.length - 1] !== b.dataset.tab) tabHistory.push(b.dataset.tab);
   window.scrollTo(0, 0);
+  if (mode !== 'photo') stopCamera();
 });
 function gotoTab(name) { $(`#tabbar button[data-tab="${name}"]`).click(); }
 /* ---- back button: close sheet -> previous tab -> browser back ---- */
@@ -1101,25 +1102,74 @@ const CAP_STEPS = [
 const captures = {}; // pos -> canvas 300x300
 let capStep = 0;
 let stream = null, loadedImage = null;
+const CAMHINT_HTML = $('#camHint').innerHTML;
+function showCamHint() { const h = $('#camHint'); h.innerHTML = CAMHINT_HTML; h.classList.remove('hidden'); }
+/* A (near-)uniform black frame means frames are not reaching the element,
+   even when the stream itself is alive. */
+function frameIsBlack(v) {
+  try {
+    const cv = document.createElement('canvas'); cv.width = cv.height = 32;
+    const ctx = cv.getContext('2d'); ctx.drawImage(v, 0, 0, 32, 32);
+    const d = ctx.getImageData(0, 0, 32, 32).data;
+    let sum = 0, sq = 0, n = 0;
+    for (let i = 0; i < d.length; i += 4) { const g = (d[i] + d[i + 1] + d[i + 2]) / 3; sum += g; sq += g * g; n++; }
+    const mean = sum / n;
+    return mean < 8 && Math.sqrt(Math.max(0, sq / n - mean * mean)) < 2;
+  } catch (e) { return false; }
+}
+function stopCamera() {
+  if (!stream) return;
+  for (const t of stream.getTracks()) t.stop();
+  stream = null;
+  const v = $('#camVideo'); try { v.pause(); } catch (e) {}
+  v.srcObject = null; v.classList.add('hidden');
+  if (!loadedImage) showCamHint();
+}
 async function startCamera() {
-  if (stream) return true;
+  const v = $('#camVideo');
+  if (stream) { v.classList.remove('hidden'); $('#camHint').classList.add('hidden'); $('#camImg').classList.add('hidden'); try { await v.play(); } catch (e) {} return true; }
+  // Show the video element BEFORE the stream attaches: in WKWebView a video
+  // that is display:none when srcObject is set may never paint frames -- the
+  // preview stays black while capturing still works (user report 2026-11-14).
+  $('#camHint').classList.add('hidden'); $('#camImg').classList.add('hidden'); v.classList.remove('hidden');
+  // Keep other apps' music audible where the platform allows it: declare a
+  // playback-oriented audio session (Safari 17+ Audio Session API) before
+  // opening this video-only capture.
+  try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}
   try {
     stream = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1920 } },
       audio: false,
     });
-    $('#camVideo').srcObject = stream;
-    // ask for continuous autofocus where the platform supports it (recent iOS
-    // Safari honours focusMode; elsewhere this is a no-op)
-    try {
-      const track = stream.getVideoTracks()[0];
-      const caps = track.getCapabilities ? track.getCapabilities() : {};
-      if (caps.focusMode && caps.focusMode.includes('continuous')) {
-        await track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] });
-      }
-    } catch (e) { /* focus stays at the platform default */ }
-    return true;
-  } catch (e) { return false; }
+  } catch (e) { v.classList.add('hidden'); if (!loadedImage) showCamHint(); return false; }
+  v.muted = true; v.playsInline = true; v.srcObject = stream;
+  try {
+    await new Promise(res => { if (v.readyState >= 2) res(); else { v.addEventListener('loadedmetadata', res, { once: true }); setTimeout(res, 1500); } });
+    await v.play();
+  } catch (e) { /* if play() is refused the stream can still be captured */ }
+  // ask for continuous autofocus where the platform supports it (recent iOS
+  // Safari honours focusMode; elsewhere this is a no-op)
+  try {
+    const track = stream.getVideoTracks()[0];
+    const caps = track.getCapabilities ? track.getCapabilities() : {};
+    if (caps.focusMode && caps.focusMode.includes('continuous')) {
+      await track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] });
+    }
+  } catch (e) { /* focus stays at the platform default */ }
+  // Paint check: if frames are not reaching the element, re-attach once;
+  // if it is still black, say so (capturing still works).
+  setTimeout(async () => {
+    if (!stream || !frameIsBlack(v)) return;
+    try { v.pause(); v.srcObject = null; await new Promise(r => setTimeout(r, 80)); v.srcObject = stream; await v.play(); } catch (e) {}
+    setTimeout(() => {
+      if (!stream || !frameIsBlack(v)) return;
+      v.classList.add('hidden');
+      const h = $('#camHint');
+      h.innerHTML = 'プレビューが映っていません（真っ黒なまま）。そのまま「📷 撮影する」で撮影はできます。映したいときは、一度ほかのタブに切り替えてから戻ってください。';
+      h.classList.remove('hidden');
+    }, 700);
+  }, 900);
+  return true;
 }
 let capNote = '';
 let capPicked = false; // user explicitly tapped a thumbnail (retake intent)
@@ -1165,7 +1215,7 @@ function captureFrom(src, sw, sh) {
 $('#btnShot').addEventListener('click', async () => {
   const pos = CAP_STEPS[capStep].pos;
   const v = $('#camVideo');
-  if (!stream && !loadedImage) { const ok = await startCamera(); if (ok) { $('#camHint').classList.add('hidden'); $('#camImg').classList.add('hidden'); $('#camVideo').classList.remove('hidden'); } else if (!loadedImage) { $('#fileInput').click(); return; } }
+  if (!stream && !loadedImage) { const ok = await startCamera(); if (!ok && !loadedImage) { $('#fileInput').click(); return; } }
   const wasRetake = !!captures[pos];
   if (stream && v.videoWidth) captures[pos] = captureFrom(v, v.videoWidth, v.videoHeight);
   else if (loadedImage) captures[pos] = captureFrom(loadedImage, loadedImage.naturalWidth, loadedImage.naturalHeight);
@@ -1189,7 +1239,7 @@ $('#btnCapReset').addEventListener('click', () => {
 $('#fileInput').addEventListener('change', (e) => {
   const f = e.target.files[0]; if (!f) return;
   const img = new Image();
-  img.onload = () => { loadedImage = img; const ci = $('#camImg'); ci.src = img.src; ci.classList.remove('hidden'); $('#camVideo').classList.add('hidden'); $('#camHint').classList.add('hidden'); };
+  img.onload = () => { loadedImage = img; stopCamera(); const ci = $('#camImg'); ci.src = img.src; ci.classList.remove('hidden'); $('#camVideo').classList.add('hidden'); $('#camHint').classList.add('hidden'); };
   img.src = URL.createObjectURL(f);
 });
 /* ---- image matching ---- */
@@ -1334,6 +1384,7 @@ function gridSrcIdx(r, c, g) {
 $('#btnAnalyse').addEventListener('click', async () => {
   $('#btnAnalyse').disabled = true; $('#btnAnalyse').textContent = '読み取り中…';
   try {
+    stopCamera();
     await loadFaceImages(); buildRefTiles();
     analyseCaptures();
     const pn = $('#photoNote');
