@@ -36,7 +36,7 @@
   .sticker::after { content: ""; position: absolute; inset: 0; border-radius: 7px; box-shadow: inset 0 0 0 2px rgba(8,8,12,.92), inset 0 0 0 3px rgba(255,255,255,.05); pointer-events: none; }
   .viewbtns, .btnrow { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin: 3px 0; }
   .viewbtns button.btn { padding: 5px 9px; font-size: 12px; min-height: 30px; }
-  button.btn.small { min-height: 34px; font-size: 12.5px; padding: 6px 10px; }
+  button.btn.small { min-height: 32px; font-size: 12px; padding: 5px 7px; }
   button.btn { padding: 8px 11px; font-size: 13px; border-radius: 9px; border: 1px solid #39445a; background: #232c3e; color: #eef1f5; cursor: pointer; min-height: 38px; }
   button.btn:active { transform: scale(.97); }
   button.btn.primary { background: #2b6cb0; border-color: #2b6cb0; font-weight: 700; }
@@ -87,14 +87,15 @@
   #camWrap { width: min(92vw, 380px); margin: 6px auto; }
   #camBox { width: 100%; aspect-ratio: 1; background: #000; border-radius: 12px; overflow: hidden; position: relative; border: 2px solid #39445a; }
   #camBox video, #camBox img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  #camBox .guide { position: absolute; inset: 0; border: 3px dashed rgba(255,212,121,.0); pointer-events: none; }
+  #camBox .guide { position: absolute; inset: 0; border: 3px dashed rgba(255,212,121,.9); pointer-events: none; background-image: linear-gradient(90deg, transparent 0, transparent calc(33.33% - 1px), rgba(255,212,121,.5) calc(33.33% - 1px), rgba(255,212,121,.5) calc(33.33% + 1px), transparent calc(33.33% + 1px), transparent calc(66.66% - 1px), rgba(255,212,121,.5) calc(66.66% - 1px), rgba(255,212,121,.5) calc(66.66% + 1px), transparent calc(66.66% + 1px)), linear-gradient(0deg, transparent 0, transparent calc(33.33% - 1px), rgba(255,212,121,.5) calc(33.33% - 1px), rgba(255,212,121,.5) calc(33.33% + 1px), transparent calc(33.33% + 1px), transparent calc(66.66% - 1px), rgba(255,212,121,.5) calc(66.66% - 1px), rgba(255,212,121,.5) calc(66.66% + 1px), transparent calc(66.66% + 1px)); }
   #camBox .camhint { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center; padding: 18px; font-size: 13px; color: #9fb0c3; line-height: 1.7; }
   .stepinfo { text-align: center; font-size: 15px; font-weight: 700; margin: 6px 0 2px; }
   .stepdesc { text-align: center; font-size: 12.5px; color: #c8d4e4; margin: 0 0 6px; line-height: 1.55; }
   .thumbs { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; margin: 8px 0; }
   .thumb { width: 56px; text-align: center; cursor: pointer; }
   .thumb .cv { width: 56px; height: 56px; border-radius: 8px; border: 2px solid #39445a; background: #232a38 center/cover no-repeat; }
-  .thumb.cur .cv { border-color: #ffd479; }
+  .thumb.cur .cv { border-color: #ffd479; box-shadow: 0 0 0 3px rgba(255,212,121,.35); }
+  .thumb.cur .tl { color: #ffd479; font-weight: 700; }
   .thumb .tl { font-size: 10px; color: #c8d4e4; margin-top: 2px; }
   input[type=file] { display: none; }
   /* picker sheet */
@@ -122,7 +123,12 @@
   .guide-body h3 { font-size: 15px; margin: 16px 0 4px; color: #ffd479; }
   .guide-body ol, .guide-body ul { margin: 4px 0; padding-left: 22px; }
   .note { font-size: 12px; color: #9fb0c3; line-height: 1.6; margin-top: 18px; border-top: 1px solid #2c3648; padding-top: 10px; }
+  .tips { margin-top: 18px; border-top: 1px solid #2c3648; padding-top: 10px; }
+  .tips h3 { font-size: 14px; margin: 0 0 6px; }
+  .tips ul { margin: 0; padding-left: 18px; font-size: 12.5px; color: #c8d4e4; line-height: 1.7; }
   .hidden { display: none !important; }
+  body.editing .playctl { display: none !important; }
+  #editBar { border: 1.5px solid #ffd479; border-radius: 12px; padding: 8px 10px; margin: 4px 0; background: #1d2432; }
   @media (max-height: 700px) {
     #scene { width: min(96vw, 34vh); height: min(96vw, 34vh); }
     main { padding-bottom: 0; }
@@ -183,15 +189,24 @@
   <section class="tab active" id="tab-play">
     <div class="status" id="playStatus"></div>
     <div class="substatus" id="centreStatus"></div>
-    <div class="btnrow">
+    <div id="editBar" class="hidden">
+      <p class="stepdesc" style="text-align:left">✋ 手動編集中：3Dのタイルをタップすると選び直せます。ドラッグでキューブを回して、裏側のタイルも編集できます。中心タイルはタップで回転も変えられます。選んだタイルの向き（回転）は、反映した時に自動で正しく合います。</p>
+      <div class="errors" id="editError"></div>
+      <div class="btnrow">
+        <button class="btn primary" id="btnEditDone">✓ 反映して終える</button>
+        <button class="btn" id="btnEditCancel">やめる（元に戻す）</button>
+      </div>
+    </div>
+    <div class="btnrow playctl">
       <button class="btn primary" id="btnSolve">この状態を解く</button>
       <button class="btn" id="btnScramble">シャッフル</button>
     </div>
-    <div class="pad" id="movePad"></div>
-    <div class="btnrow">
+    <div class="pad playctl" id="movePad"></div>
+    <div class="btnrow playctl">
       <button class="btn small" id="btnReset">完成形に戻す</button>
       <button class="btn small" id="btnUndo">↩ 1手戻す</button>
       <button class="btn small" id="btnRedo">↪ 1手進める</button>
+      <button class="btn small" id="btnEditMode">✋ 手動編集</button>
     </div>
   </section>
 
@@ -243,7 +258,8 @@
       <button class="btn primary" id="btnAnalyse" disabled>読み取り結果を確認する</button>
     </div>
     <div id="photoReview" class="hidden">
-      <p class="stepdesc">自動で読み取った結果です。「要確認」のマスや、写真が上手く反映されていないマスは、「手で直す」ボタン（またはマスをタップ）から、全ステッカーの中から正しいものを選び直せます。底面（UDX・ダイビル）は撮影していないので、他の面から自動復元しています。中心のマスは、タップして候補選択と回転（↻）ができます。</p>
+      <p class="stepdesc">自動で読み取った結果です。「要確認」のマスや、写真が上手く反映されていないマスは、「手で直す」ボタン（またはマスをタップ）から、全ステッカーの中から正しいものを選び直せます。中心のマスは、タップして候補選択と回転（↻）ができます。</p>
+      <div class="okmsg" id="photoNote" style="display:none"></div>
       <div class="errors" id="photoErrors"></div>
       <div class="okmsg" id="photoOk"></div>
       <div class="btnrow">
@@ -254,6 +270,17 @@
         <button class="btn" id="btnPhotoCheck">整合性をチェック</button>
         <button class="btn primary" id="btnPhotoApply">3Dに反映して解く</button>
       </div>
+    </div>
+    <div class="tips">
+      <h3>📸 撮る時のコツ</h3>
+      <ul>
+        <li>明るく、光が均一な場所で撮る。面に影や照明の反射が入らないようにしてください。</li>
+        <li>黄色い枠にキューブの面をぴったり合わせ、タイルの境目の線を枠の線に重ねてください。</li>
+        <li>真っ正面から撮る。斜めになると読み取りにくくなります。</li>
+        <li>各ステップで指定された「写真の上」の向きを守ってください（上下が逆に写っても自動で直しますが、合っている方が確実です）。</li>
+        <li>手ブレしやすいので、キューブを机に置くか、両手でしっかり持って撮ってください。</li>
+        <li>結果で「要確認」になったマスは、実物と見比べて「手で直す」で直してください。</li>
+      </ul>
     </div>
   </section>
 
@@ -960,14 +987,114 @@ $('#sheetClear').addEventListener('click', () => {
     wrap.appendChild(card);
   }
 })();
+/* ================= 3D MANUAL EDIT MODE ================= */
+let editR = null, editing = false;
+function uFromRot(pos, k) {
+  const V = FACELET_VIEW[pos];
+  const tbl = [V.vu, V.vr, V.vu.map(x => -x), V.vr.map(x => -x)];
+  return tbl[((k % 4) + 4) % 4];
+}
+function renderEditCube() {
+  const c = $('#cube'); c.innerHTML = '';
+  for (const pos of ['U', 'D', 'F', 'B', 'L', 'R']) {
+    for (let r = 0; r < 3; r++) for (let cc = 0; cc < 3; cc++) {
+      const a = editR.assign[pos][r][cc];
+      if (!a) continue;
+      const isCentre = r === 1 && cc === 1;
+      const dispRot = isCentre ? (baseRotOf(pos) + editR.centreRot[pos]) % 4 : (a.rot || 0);
+      const s = { home: a.home, row: a.hrow, col: a.hcol, pos: cubiePosOf(pos, r, cc), n: POS_NORMAL[pos], u: uFromRot(pos, dispRot) };
+      const d = document.createElement('div');
+      d.className = 'sticker';
+      d.style.width = d.style.height = SS + 'px';
+      d.style.marginLeft = d.style.marginTop = (-SS / 2) + 'px';
+      d.appendChild(tileImg(s.home, s.row, s.col));
+      d.style.transform = stickerMatrix(s);
+      d._n = [s.n[0], -s.n[1], s.n[2]];
+      d.dataset.pos = pos; d.dataset.r = r; d.dataset.c = cc;
+      c.appendChild(d);
+    }
+  }
+  applyView();
+}
+function seedEditor() {
+  if (!editR) {
+    const net = document.createElement('div');
+    net.className = 'net'; net.style.display = 'none';
+    document.body.appendChild(net);
+    editR = makeReview(net, { allowClear: true, photo: false });
+    const origRender = editR.render;
+    editR.render = () => { origRender(); if (editing) renderEditCube(); };
+  }
+  const rots = cube.centerRotations();
+  for (const pos of ['U', 'D', 'F', 'B', 'L', 'R']) {
+    editR.centreRot[pos] = rots[pos] || 0;
+    for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) {
+      const s = cube.at(cubiePosOf(pos, r, c), POS_NORMAL[pos]);
+      if (!s) { editR.assign[pos][r][c] = null; continue; }
+      const V = FACELET_VIEW[pos];
+      const a = s.u[0] * V.vr[0] + s.u[1] * V.vr[1] + s.u[2] * V.vr[2];
+      const b = s.u[0] * V.vu[0] + s.u[1] * V.vu[1] + s.u[2] * V.vu[2];
+      const rot = (a === 1 && b === 0) ? 1 : (a === 0 && b === -1) ? 2 : (a === -1 && b === 0) ? 3 : 0;
+      editR.assign[pos][r][c] = { home: s.home, hrow: s.row, hcol: s.col, rot, flag: false, auto: false };
+    }
+  }
+}
+function enterEdit() {
+  if (animating || editing) return;
+  seedEditor();
+  editing = true;
+  document.body.classList.add('editing');
+  $('#editBar').classList.remove('hidden');
+  $('#editError').style.display = 'none';
+  editR.render();
+  $('#playStatus').textContent = '編集中：3Dのタイルをタップして選び直せます（ドラッグで回転、中心はタップで回転も変更できます）';
+}
+function exitEdit() {
+  editing = false;
+  document.body.classList.remove('editing');
+  $('#editBar').classList.add('hidden');
+  renderCube();
+}
+$('#btnEditMode').addEventListener('click', enterEdit);
+$('#btnEditCancel').addEventListener('click', () => { exitEdit(); $('#playStatus').textContent = '編集を取りやめました'; });
+$('#btnEditDone').addEventListener('click', () => {
+  const errEl = $('#editError');
+  const show = (t) => { errEl.style.display = t ? 'block' : 'none'; errEl.textContent = t || ''; };
+  show(null);
+  const col = editR.collect();
+  if (col.error) { show(col.error); return; }
+  const v = validateFacelets(col.fc);
+  if (!v.ok) { show('整合性エラー：' + v.errors.join(' / ')); return; }
+  cube = CubeState.fromFaceletString(col.fc, { ...editR.centreRot });
+  stateGen++;
+  history = []; future = [];
+  clearSolutionUI();
+  exitEdit();
+  $('#playStatus').textContent = '手動編集を反映しました';
+});
+/* tap (not drag) a sticker while editing -> open the tile picker */
+let editTap = null;
+$('#scene').addEventListener('pointerdown', (e) => { if (editing) editTap = { x: e.clientX, y: e.clientY, t: Date.now() }; });
+$('#scene').addEventListener('pointerup', (e) => {
+  if (!editing || !editTap) return;
+  const moved = Math.hypot(e.clientX - editTap.x, e.clientY - editTap.y);
+  const dt = Date.now() - editTap.t;
+  editTap = null;
+  if (moved > 8 || dt > 600) return;
+  const el = document.elementFromPoint(e.clientX, e.clientY);
+  const st = el && el.closest ? el.closest('.sticker') : null;
+  if (st && st.dataset.pos) openPicker(editR, st.dataset.pos, +st.dataset.r, +st.dataset.c);
+});
+
 /* ================= PHOTO ================= */
-const photoReview = makeReview($('[data-net="photo"]'), { allowClear: true, autoFaces: ['D'], photo: true });
+const photoReview = makeReview($('[data-net="photo"]'), { allowClear: true, photo: true });
 const CAP_STEPS = [
-  { pos: 'F', title: '1/5 正面：秋葉原駅前', desc: '基本の持ち方（秋葉原駅前が正面・末広町が上面）のまま、正面を撮ります。面全体を枠いっぱいに、真っ正面から撮ってください。' },
-  { pos: 'R', title: '2/5 右面：神田川', desc: '上面（末広町）を上にしたまま、キューブを左へ90°回して、右面（神田川）を正面に向けます。そのまま撮ります。' },
-  { pos: 'B', title: '3/5 背面：ヨドバシ・書泉', desc: 'そのまま180°回して、背面（ヨドバシ・書泉）を正面に向けます（上面は末広町のまま）。' },
-  { pos: 'L', title: '4/5 左面：神田明神下', desc: 'さらに90°回して、左面（神田明神下）を正面に向けます（上面は末広町のまま）。' },
-  { pos: 'U', title: '5/5 上面：末広町', desc: '最後に上面（末広町）を撮ります。背面（ヨドバシ）側が写真の「上」になるように、上面をこちらへ向けてください。底面（UDX・ダイビル）は撮らなくて大丈夫です（自動で復元します）。' },
+  { pos: 'F', title: '1/6 正面：秋葉原駅前', desc: '基本の持ち方（秋葉原駅前が正面・末広町が上面）のまま、正面を撮ります。黄色い枠に面をぴったり合わせ、真っ正面から撮ってください。' },
+  { pos: 'R', title: '2/6 右面：神田川', desc: '上面（末広町）を上にしたまま、キューブを左へ90°回して、右面（神田川）を正面に向けます。そのまま撮ります。' },
+  { pos: 'B', title: '3/6 背面：ヨドバシ・書泉', desc: 'そのまま180°回して、背面（ヨドバシ・書泉）を正面に向けます（上面は末広町のまま）。' },
+  { pos: 'L', title: '4/6 左面：神田明神下', desc: 'さらに90°回して、左面（神田明神下）を正面に向けます（上面は末広町のまま）。' },
+  { pos: 'U', title: '5/6 上面：末広町', desc: '上面（末広町）を撮ります。背面（ヨドバシ）側が写真の「上」になるように、上面をこちらへ向けてください。' },
+  { pos: 'D', title: '6/6 底面：UDX・ダイビル', desc: '最後に底面（UDX・ダイビル）を撮ります。キューブを奥へ倒すように裏返して底面をこちらへ向けます（秋葉原駅前の面が写真の「上」になる向きです）。絵柄の中心の向きまで正確に読むため、底面も直接撮ります。' },
 ];
 const captures = {}; // pos -> canvas 300x300
 let capStep = 0;
@@ -980,21 +1107,36 @@ async function startCamera() {
     return true;
   } catch (e) { return false; }
 }
+let capNote = '';
+let capPicked = false; // user explicitly tapped a thumbnail (retake intent)
 function updateCapUI() {
   const step = CAP_STEPS[capStep];
+  const total = CAP_STEPS.length;
   const done = Object.keys(captures).length;
-  if (done >= 5) { $('#capTitle').textContent = '5面そろいました'; $('#capDesc').textContent = '「読み取り結果を確認する」を押してください。撮り直したい面は下のサムネイルをタップします。'; }
-  else { $('#capTitle').textContent = step.title; $('#capDesc').textContent = step.desc; }
-  $('#btnAnalyse').disabled = done < 5;
+  const selCaptured = !!captures[step.pos];
+  if (done >= total && capPicked && selCaptured) {
+    $('#capTitle').textContent = '撮り直し：' + step.title.split(' ').slice(1).join(' ');
+    $('#capDesc').textContent = 'この面は撮影済みです。キューブのその面をカメラに向けて「📷 撮影する」を押すと撮り直せます。別の面はサムネイルで選んでください。';
+  } else if (done >= total) {
+    $('#capTitle').textContent = total + '面そろいました';
+    $('#capDesc').textContent = (capNote ? capNote + ' ' : '') + '「読み取り結果を確認する」を押してください。撮り直したい面は、下のサムネイルで選んでから撮影します。';
+  } else if (selCaptured) {
+    $('#capTitle').textContent = '撮り直し：' + step.title.split(' ').slice(1).join(' ');
+    $('#capDesc').textContent = 'この面は撮影済みです。キューブのその面をカメラに向けて「📷 撮影する」を押すと撮り直せます。別の面はサムネイルで選んでください。';
+  } else {
+    $('#capTitle').textContent = step.title;
+    $('#capDesc').textContent = step.desc;
+  }
+  $('#btnAnalyse').disabled = done < total;
   const th = $('#capThumbs'); th.innerHTML = '';
-  CAP_STEPS.forEach((s, i) => {
-    const d = document.createElement('div'); d.className = 'thumb' + (i === capStep && done < 5 ? ' cur' : '');
+  CAP_STEPS.forEach((s2, i) => {
+    const d = document.createElement('div'); d.className = 'thumb' + (i === capStep ? ' cur' : '');
     const cv = document.createElement('div'); cv.className = 'cv';
-    if (captures[s.pos]) cv.style.backgroundImage = `url(${captures[s.pos].toDataURL('image/jpeg', 0.7)})`;
+    if (captures[s2.pos]) cv.style.backgroundImage = `url(${captures[s2.pos].toDataURL('image/jpeg', 0.7)})`;
     d.appendChild(cv);
-    const tl = document.createElement('div'); tl.className = 'tl'; tl.textContent = POSFACE_LABEL[s.pos].split('（')[0] + (captures[s.pos] ? ' ✓' : '');
+    const tl = document.createElement('div'); tl.className = 'tl'; tl.textContent = (i === capStep ? '▶ ' : '') + POSFACE_LABEL[s2.pos].split('（')[0] + (captures[s2.pos] ? ' ✓' : '');
     d.appendChild(tl);
-    d.addEventListener('click', () => { capStep = i; updateCapUI(); });
+    d.addEventListener('click', () => { capStep = i; capNote = ''; capPicked = true; updateCapUI(); });
     th.appendChild(d);
   });
 }
@@ -1010,9 +1152,12 @@ $('#btnShot').addEventListener('click', async () => {
   const pos = CAP_STEPS[capStep].pos;
   const v = $('#camVideo');
   if (!stream && !loadedImage) { const ok = await startCamera(); if (ok) { $('#camHint').classList.add('hidden'); $('#camImg').classList.add('hidden'); $('#camVideo').classList.remove('hidden'); } else if (!loadedImage) { $('#fileInput').click(); return; } }
+  const wasRetake = !!captures[pos];
   if (stream && v.videoWidth) captures[pos] = captureFrom(v, v.videoWidth, v.videoHeight);
   else if (loadedImage) captures[pos] = captureFrom(loadedImage, loadedImage.naturalWidth, loadedImage.naturalHeight);
   else return;
+  capNote = wasRetake ? POSFACE_LABEL[pos].split('（')[0] + 'を撮り直しました。' : '';
+  capPicked = false;
   // advance to next uncaptured
   const nxt = CAP_STEPS.findIndex(s => !captures[s.pos]);
   if (nxt >= 0) capStep = nxt;
@@ -1040,8 +1185,27 @@ function drawRegion(src, sx, sy, sw, sh, size) {
   cv.getContext('2d').drawImage(src, sx, sy, sw, sh, 0, 0, size, size);
   return cv;
 }
+/* Standardize a sampled cell's brightness/contrast per channel before
+   feature extraction. Real photos carry shadows and glare that shift raw
+   colour histograms wholesale; matching cell-standardized photos against
+   cell-standardized references doubled real-photo accuracy in testing. */
+function standardizeCell(cv) {
+  const c2 = document.createElement('canvas'); c2.width = c2.height = 48;
+  const x = c2.getContext('2d'); x.drawImage(cv, 0, 0);
+  const id = x.getImageData(0, 0, 48, 48); const d = id.data;
+  for (let ch = 0; ch < 3; ch++) {
+    let m = 0; for (let i = ch; i < d.length; i += 4) m += d[i]; m /= 2304;
+    let v = 0; for (let i = ch; i < d.length; i += 4) v += (d[i] - m) * (d[i] - m);
+    v = Math.sqrt(v / 2304) || 1;
+    const g = 52 / v;
+    for (let i = ch; i < d.length; i += 4) d[i] = Math.max(0, Math.min(255, (d[i] - m) * g + 128));
+  }
+  x.putImageData(id, 0, 0);
+  return c2;
+}
 function featuresOf(canvas48) {
-  const ctx = canvas48.getContext('2d');
+  const cv = standardizeCell(canvas48);
+  const ctx = cv.getContext('2d');
   const data = ctx.getImageData(0, 0, 48, 48).data;
   const hist = new Float32Array(64);
   for (let i = 0; i < data.length; i += 4) {
@@ -1050,16 +1214,16 @@ function featuresOf(canvas48) {
   }
   let sum = 0; for (let i = 0; i < 64; i++) sum += hist[i];
   for (let i = 0; i < 64; i++) hist[i] /= sum;
-  const g16 = drawRegion(canvas48, 0, 0, 48, 48, 16);
-  const gd = g16.getContext('2d').getImageData(0, 0, 16, 16).data;
-  const gray = new Float32Array(256);
+  const g24 = drawRegion(cv, 0, 0, 48, 48, 24);
+  const gd = g24.getContext('2d').getImageData(0, 0, 24, 24).data;
+  const gray = new Float32Array(576);
   let mean = 0;
-  for (let i = 0; i < 256; i++) { gray[i] = 0.299 * gd[i * 4] + 0.587 * gd[i * 4 + 1] + 0.114 * gd[i * 4 + 2]; mean += gray[i]; }
-  mean /= 256;
+  for (let i = 0; i < 576; i++) { gray[i] = 0.299 * gd[i * 4] + 0.587 * gd[i * 4 + 1] + 0.114 * gd[i * 4 + 2]; mean += gray[i]; }
+  mean /= 576;
   let norm = 0;
-  for (let i = 0; i < 256; i++) { gray[i] -= mean; norm += gray[i] * gray[i]; }
+  for (let i = 0; i < 576; i++) { gray[i] -= mean; norm += gray[i] * gray[i]; }
   norm = Math.sqrt(norm) || 1;
-  for (let i = 0; i < 256; i++) gray[i] /= norm;
+  for (let i = 0; i < 576; i++) gray[i] /= norm;
   return { hist, gray };
 }
 function rotateCanvas48(src, k) {
@@ -1075,7 +1239,7 @@ function buildRefTiles() {
   refTiles = {};
   for (const f of ['A', 'B', 'C', 'D', 'E', 'F']) {
     for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) {
-      const cv = drawRegion(faceImages[f], c * 300, r * 300, 300, 300, 48);
+      const cv = drawRegion(faceImages[f], c * 300 + 30, r * 300 + 30, 240, 240, 48);
       refTiles[f + r + c] = { home: f, hrow: r, hcol: c, feat: featuresOf(cv) };
     }
   }
@@ -1084,39 +1248,136 @@ function buildRefTiles() {
 function scoreFeat(cellFeat, tileFeat) {
   let hd = 0; for (let i = 0; i < 64; i++) hd += Math.abs(cellFeat.hist[i] - tileFeat.hist[i]);
   const histSim = 1 - hd / 2;
-  let dot = 0; for (let i = 0; i < 256; i++) dot += cellFeat.gray[i] * tileFeat.gray[i];
+  let dot = 0; for (let i = 0; i < cellFeat.gray.length; i++) dot += cellFeat.gray[i] * tileFeat.gray[i];
   return 0.45 * histSim + 0.55 * ((dot + 1) / 2);
+}
+/* Sample one cell of a captured face. (ox, oy, size) is where the cube face
+   actually sits inside the 300x300 capture; cells are sampled with a 10%
+   inset so seams and neighbour bleed do not dominate the features. */
+function cellCanvas(cap, ox, oy, size, r, c, out) {
+  const cell = size / 3, inset = cell * 0.1;
+  return drawRegion(cap, ox + c * cell + inset, oy + r * cell + inset, cell - inset * 2, cell - inset * 2, out || 48);
+}
+function fullCellScore(cap, ox, oy, size) {
+  // summed best full-feature score over the 8 outer cells (centre excluded:
+  // it barely moves with alignment). Peaks sharply at the true alignment,
+  // unlike colour histograms, which stay flat under shifted light.
+  const cells = [[0, 0], [0, 1], [0, 2], [1, 0], [1, 2], [2, 0], [2, 1], [2, 2]];
+  let tot = 0;
+  for (const [r, c] of cells) {
+    const cv = cellCanvas(cap, ox, oy, size, r, c, 48);
+    const feats = [0, 1, 2, 3].map(k => featuresOf(rotateCanvas48(cv, k)));
+    let best = -1;
+    for (const key of Object.keys(refTiles)) {
+      const t = refTiles[key];
+      for (let k = 0; k < 4; k++) {
+        const sc = scoreFeat({ hist: feats[0].hist, gray: feats[k].gray }, t.feat);
+        if (sc > best) best = sc;
+      }
+    }
+    tot += best;
+  }
+  return tot;
+}
+/* The cube rarely fills the frame exactly: search the face's size and
+   offset with the full matching score, and only move off the exact-thirds
+   framing when the improvement is clear. */
+function estimateAlign(cap) {
+  const idSc = fullCellScore(cap, 0, 0, 300);
+  let best = { ox: 0, oy: 0, size: 300, sc: idSc };
+  for (const size of [300, 282, 264]) {
+    for (const dx of [-12, 0, 12]) for (const dy of [-12, 0, 12]) {
+      const ox = (300 - size) / 2 + dx, oy = (300 - size) / 2 + dy;
+      if (ox === 0 && oy === 0 && size === 300) continue;
+      const sc = fullCellScore(cap, ox, oy, size);
+      if (sc > best.sc) best = { ox, oy, size, sc };
+    }
+  }
+  for (const dx of [-6, -3, 0, 3, 6]) for (const dy of [-6, -3, 0, 3, 6]) {
+    if (!dx && !dy) continue;
+    const sc = fullCellScore(cap, best.ox + dx, best.oy + dy, best.size);
+    if (sc > best.sc) best = { ox: best.ox + dx, oy: best.oy + dy, size: best.size, sc };
+  }
+  if (best.sc < idSc + 0.1) return { ox: 0, oy: 0, size: 300 };
+  return best;
+}
+/* Source cell of corrected cell (r, c) when the whole photo was rotated
+   g*90 degrees clockwise relative to the expected orientation. */
+function gridSrcIdx(r, c, g) {
+  if (g === 0) return [r, c];
+  if (g === 1) return [2 - c, r];
+  if (g === 2) return [2 - r, 2 - c];
+  return [c, 2 - r];
 }
 $('#btnAnalyse').addEventListener('click', async () => {
   $('#btnAnalyse').disabled = true; $('#btnAnalyse').textContent = '読み取り中…';
   try {
     await loadFaceImages(); buildRefTiles();
     analyseCaptures();
+    const pn = $('#photoNote');
+    if (lastPhotoNotes.length) { pn.style.display = 'block'; pn.textContent = lastPhotoNotes.join(' '); } else pn.style.display = 'none';
     $('#photoReview').classList.remove('hidden');
     $('#photoReview').scrollIntoView({ behavior: 'smooth' });
   } catch (err) {
     alert('読み取りでエラーが起きました：' + err.message);
   } finally { $('#btnAnalyse').disabled = false; $('#btnAnalyse').textContent = '読み取り結果を確認する'; }
 });
+let lastPhotoNotes = [];
+function rotateFaceAssign(R, pos, g) {
+  const old = R.assign[pos].map(row => row.slice());
+  for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) {
+    const [sr, sc] = gridSrcIdx(r, c, g);
+    const a = old[sr][sc];
+    R.assign[pos][r][c] = a ? { ...a, rot: (a.rot + g) % 4 } : null;
+  }
+  R.centreRot[pos] = (R.centreRot[pos] + g) % 4;
+}
+/* Count corner/edge slots whose facelets form a real cubie (0..20).
+   validateFacelets aggregates its errors, so it cannot guide a search;
+   this score can: rotating a wrongly-rotated face repairs its 8 slots. */
+function cubieSlotScore(R) {
+  const col = R.collect();
+  if (col.error) return -1;
+  const fc = col.fc;
+  let score = 0;
+  for (let i = 0; i < 8; i++) {
+    const lets = CORNER_FACELET[i].map(ix => fc[ix]);
+    for (let j = 0; j < 8; j++) { const cc = CORNER_COLOR[j];
+      if (lets.includes(cc[0]) && lets.includes(cc[1]) && lets.includes(cc[2])) { score++; break; } }
+  }
+  for (let i = 0; i < 12; i++) {
+    const lets = EDGE_FACELET[i].map(ix => fc[ix]);
+    for (let j = 0; j < 12; j++) { const ec = EDGE_COLOR[j];
+      if (lets.includes(ec[0]) && lets.includes(ec[1])) { score++; break; } }
+  }
+  return score;
+}
+function validationErrorCount(R) {
+  const col = R.collect();
+  if (col.error) return 99;
+  const v = validateFacelets(col.fc);
+  return v.ok ? 0 : v.errors.length;
+}
 function analyseCaptures() {
   const R = photoReview;
-  // per-cell candidates
+  lastPhotoNotes = [];
   const cellLists = {}; // pos -> rows
   for (const step of CAP_STEPS) {
     const pos = step.pos;
+    const cap = captures[pos];
+    const al = estimateAlign(cap);
     cellLists[pos] = [];
     for (let r = 0; r < 3; r++) {
       cellLists[pos][r] = [];
       for (let c = 0; c < 3; c++) {
-        const cellCv = drawRegion(captures[pos], c * 100, r * 100, 100, 100, 48);
-        const feat0 = featuresOf(cellCv);
+        const cellCv = cellCanvas(cap, al.ox, al.oy, al.size, r, c, 48);
+        const feats = [0, 1, 2, 3].map(k => featuresOf(rotateCanvas48(cellCv, k)));
         const list = [];
         for (const key of Object.keys(refTiles)) {
           const t = refTiles[key];
           let best = -1, bestK = 0;
           for (let k = 0; k < 4; k++) {
-            const f = k === 0 ? feat0 : featuresOf(rotateCanvas48(cellCv, k));
-            const sc = scoreFeat({ hist: feat0.hist, gray: f.gray }, t.feat);
+            const sc = scoreFeat({ hist: feats[0].hist, gray: feats[k].gray }, t.feat);
             if (sc > best) { best = sc; bestK = k; }
           }
           list.push({ home: t.home, hrow: t.hrow, hcol: t.hcol, rot: (4 - bestK) % 4, score: best });
@@ -1149,9 +1410,71 @@ function analyseCaptures() {
     const a = R.assign[pos][1][1];
     if (a) R.centreRot[pos] = ((a.rot - baseRotOf(pos)) % 4 + 4) % 4;
   }
-  restoreBottom(R);
+  if (!captures.D) restoreBottom(R);
+  /* A face photographed rotated (e.g. upside down) still yields the right
+     tile identities, but their positions within the face are rotated and
+     the cube fails validation. Try rotating each captured face's grid;
+     keep any rotation that reduces the validation error count. */
+  /* Try every combination of whole-face rotations (4^6 worst case) and
+     keep the arrangement whose cubies are most real. Greedy one-face-at-
+     a-time repair stalls when several photos are rotated at once, which
+     is the normal case in real shooting. */
+  {
+    const faces = ['U', 'R', 'F', 'D', 'L', 'B'];
+    const freeFaces = captures.D ? faces : faces.filter(p => p !== 'D');
+    const fcOf = (combo) => {
+      const fc = new Array(54);
+      for (let fi = 0; fi < 6; fi++) {
+        const pos = faces[fi]; const g = combo[pos] || 0;
+        for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) {
+          const [sr, sc2] = gridSrcIdx(r, c, g);
+          const a = R.assign[pos][sr][sc2];
+          fc[fi * 9 + r * 3 + c] = a ? FACE_HOME_POS[a.home] : '?';
+        }
+      }
+      return fc;
+    };
+    const slotScoreFc = (fc) => {
+      if (fc.includes('?')) return -1;
+      let score = 0;
+      for (let i = 0; i < 8; i++) {
+        const lets = CORNER_FACELET[i].map(ix => fc[ix]);
+        for (let j = 0; j < 8; j++) { const cc = CORNER_COLOR[j];
+          if (lets.includes(cc[0]) && lets.includes(cc[1]) && lets.includes(cc[2])) { score++; break; } }
+      }
+      for (let i = 0; i < 12; i++) {
+        const lets = EDGE_FACELET[i].map(ix => fc[ix]);
+        for (let j = 0; j < 12; j++) { const ec = EDGE_COLOR[j];
+          if (lets.includes(ec[0]) && lets.includes(ec[1])) { score++; break; } }
+      }
+      return score;
+    };
+    let bestCombo = {}, bestKey = null;
+    const total = Math.pow(4, freeFaces.length);
+    for (let n = 0; n < total; n++) {
+      const combo = {}; let m = n, rots = 0;
+      for (const p of freeFaces) { combo[p] = m % 4; if (combo[p]) rots++; m = Math.floor(m / 4); }
+      const fc = fcOf(combo);
+      const sc = slotScoreFc(fc);
+      if (sc < 0) continue;
+      const ok = sc === 20 && validateFacelets(fc.join('')).ok ? 1 : 0;
+      const key = [sc, ok, -rots];
+      if (!bestKey || key[0] > bestKey[0] || (key[0] === bestKey[0] && (key[1] > bestKey[1] || (key[1] === bestKey[1] && key[2] > bestKey[2])))) { bestKey = key; bestCombo = combo; }
+      if (sc === 20 && ok && rots === 0) break;
+    }
+    const applied = [];
+    for (const p of freeFaces) {
+      const g = bestCombo[p] || 0;
+      if (g) { rotateFaceAssign(R, p, g); applied.push(`${POSFACE_LABEL[p]}は${g * 90}°回って写っていたので、自動で向きを直して読み取りました。`); }
+    }
+    if (applied.length) {
+      lastPhotoNotes.push(...applied);
+      if (!captures.D) restoreBottom(R);
+    }
+  }
   R.render();
 }
+
 function restoreBottom(R) {
   const solved = CubeState.solved();
   const groups = new Map(); // posKey -> stickers
