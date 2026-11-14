@@ -11,51 +11,59 @@
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { margin: 0; padding: 0; }
   body { font-family: "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Noto Sans JP", sans-serif; background: #14181f; color: #eef1f5; }
-  header { padding: 10px 12px 4px; text-align: center; position: relative; z-index: 70; }
-  #btnBack { display: block; margin: 0 auto 2px 0; padding: 7px 12px; font-size: 13px; border-radius: 9px; border: 1px solid #39445a; background: #232c3e; color: #eef1f5; cursor: pointer; min-height: 38px; }
-  header h1 { font-size: 19px; margin: 0; letter-spacing: .04em; }
-  header p { margin: 2px 0 0; font-size: 12px; color: #9fb0c3; }
-  .tabs { display: flex; gap: 4px; padding: 8px 8px 0; position: sticky; top: 0; background: #14181f; z-index: 30; overflow-x: auto; }
-  .tabs button { flex: 1 1 0; min-width: 0; padding: 9px 1px; font-size: 12px; border: 1px solid #39445a; background: #1d2432; color: #cfd9e6; border-radius: 10px 10px 0 0; cursor: pointer; white-space: nowrap; }
+  header { display: flex; align-items: center; gap: 10px; padding: 6px 12px 0; position: relative; z-index: 70; }
+  #btnBack { display: block; margin: 0; flex: none; padding: 6px 12px; font-size: 13px; border-radius: 9px; border: 1px solid #39445a; background: #232c3e; color: #eef1f5; cursor: pointer; min-height: 34px; }
+  header h1 { font-size: 16px; margin: 0; letter-spacing: .03em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tabs { display: flex; gap: 4px; padding: 5px 8px 0; position: sticky; top: 0; background: #14181f; z-index: 30; overflow-x: auto; }
+  .tabs button { flex: 1 1 0; min-width: 0; padding: 7px 1px; font-size: 12px; border: 1px solid #39445a; background: #1d2432; color: #cfd9e6; border-radius: 10px 10px 0 0; cursor: pointer; white-space: nowrap; }
   .tabs button.active { background: #2b6cb0; border-color: #2b6cb0; color: #fff; font-weight: 700; }
-  main { padding: 10px 10px 40px; max-width: 600px; margin: 0 auto; }
+  main { padding: 6px 8px 4px; max-width: 600px; margin: 0 auto; }
   section.tab { display: none; }
   section.tab.active { display: block; }
-  .modebar { display: flex; gap: 6px; justify-content: center; margin: 2px 0 4px; }
+  .modebar { display: flex; gap: 6px; justify-content: center; margin: 0 0 2px; }
   html, button, .chip { touch-action: manipulation; } /* no double-tap zoom on rapid taps */
-  .modebtn { flex: 1; max-width: 190px; padding: 9px 6px; font-size: 13.5px; border-radius: 9px; border: 1px solid #39445a; background: #1d2432; color: #cfd9e6; cursor: pointer; min-height: 42px; }
+  .modebtn { flex: 1; max-width: 190px; padding: 5px 6px; font-size: 12.5px; border-radius: 9px; border: 1px solid #39445a; background: #1d2432; color: #cfd9e6; cursor: pointer; min-height: 31px; }
   .modebtn.active { background: #2b6cb0; border-color: #2b6cb0; color: #fff; font-weight: 700; }
   /* ---- 3D scene ---- */
-  #scene { width: min(96vw, 420px); height: min(96vw, 420px); margin: 4px auto; perspective: 1800px; touch-action: none; position: relative; }
+  #stage { display: none; }
+  #stage.on { display: block; }
+  #scene { width: min(94vw, 30vh); height: min(94vw, 30vh); margin: 2px auto; perspective: 1800px; touch-action: none; position: relative; }
+  body[data-mode="solve"] #scene { width: min(86vw, 23vh); height: min(86vw, 23vh); }
+  #moveToast { position: absolute; left: 50%; top: 6px; transform: translateX(-50%); background: rgba(18,24,36,.9); border: 1.5px solid #63b3ed; color: #fff; font-size: 19px; font-weight: 800; padding: 5px 18px; border-radius: 999px; opacity: 0; transition: opacity .18s; pointer-events: none; z-index: 6; white-space: nowrap; }
+  #moveToast.show { opacity: 1; }
   #cubeWrap { width: 100%; height: 100%; position: absolute; transform-style: preserve-3d; }
   #cube, .layer3d { position: absolute; inset: 0; transform-style: preserve-3d; }
   .sticker { position: absolute; left: 50%; top: 50%; border-radius: 7px; overflow: hidden; box-shadow: inset 0 0 0 2px rgba(10,10,14,.85); background-color: #20242c; background-repeat: no-repeat; }
   /* seam frame above the sprite image (the sticker's own inset shadow is
      painted under the <img>, so the black grid of the real cube was lost) */
   .sticker::after { content: ""; position: absolute; inset: 0; border-radius: 7px; box-shadow: inset 0 0 0 2px rgba(8,8,12,.92), inset 0 0 0 3px rgba(255,255,255,.05); pointer-events: none; }
-  .viewbtns, .btnrow { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin: 8px 0; }
+  .viewbtns, .btnrow { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin: 4px 0; }
+  .viewbtns button.btn { padding: 5px 9px; font-size: 12.5px; min-height: 32px; }
+  button.btn.small { min-height: 36px; font-size: 13px; padding: 7px 10px; }
   button.btn { padding: 9px 12px; font-size: 14px; border-radius: 9px; border: 1px solid #39445a; background: #232c3e; color: #eef1f5; cursor: pointer; min-height: 42px; }
   button.btn:active { transform: scale(.97); }
   button.btn.primary { background: #2b6cb0; border-color: #2b6cb0; font-weight: 700; }
   button.btn.warn { background: #744210; border-color: #975a16; }
   button.btn:disabled { opacity: .45; }
-  .status { text-align: center; font-size: 13px; color: #a8e063; min-height: 18px; margin: 4px 0; }
-  .substatus { text-align: center; font-size: 12px; color: #9fb0c3; min-height: 16px; margin: 2px 0; }
+  .status { text-align: center; font-size: 13px; color: #a8e063; min-height: 17px; margin: 2px 0; }
+  .substatus { text-align: center; font-size: 12px; color: #9fb0c3; min-height: 14px; margin: 1px 0; }
   /* move pad */
-  .pad { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 8px 0; }
-  .padgroup { background: #1a2130; border: 1px solid #2c3648; border-radius: 10px; padding: 6px; }
-  .padgroup .lab { font-size: 12px; color: #c8d4e4; text-align: center; margin-bottom: 5px; white-space: nowrap; }
+  .pad { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin: 6px 0; }
+  .padgroup { background: #1a2130; border: 1px solid #2c3648; border-radius: 10px; padding: 5px; }
+  .padgroup .lab { font-size: 11.5px; color: #c8d4e4; text-align: center; margin-bottom: 4px; white-space: nowrap; }
   .padgroup .row { display: flex; gap: 5px; }
-  .padgroup button { flex: 1; padding: 10px 0; font-size: 16px; border-radius: 8px; border: 1px solid #39445a; background: #28324a; color: #fff; cursor: pointer; min-height: 44px; }
+  .padgroup button { flex: 1; padding: 6px 0; font-size: 15px; border-radius: 8px; border: 1px solid #39445a; background: #28324a; color: #fff; cursor: pointer; min-height: 38px; }
   /* solution */
-  #solPanel { margin-top: 10px; }
+  #solNow { text-align: center; font-size: 23px; font-weight: 800; margin: 2px 0; min-height: 31px; }
+  #solNow .solphase { display: block; font-size: 11.5px; font-weight: 600; color: #ffd479; letter-spacing: .06em; }
+  .sol-scroll { position: relative; max-height: 17vh; overflow-y: auto; border-top: 1px solid #2c3648; border-bottom: 1px solid #2c3648; padding: 2px 2px 6px; margin-top: 4px; -webkit-overflow-scrolling: touch; }
   .solgroup { font-size: 13px; font-weight: 700; margin: 10px 0 4px; color: #ffd479; }
   .chips { display: flex; flex-wrap: wrap; gap: 4px; }
   .chip { padding: 5px 8px; font-size: 14px; border-radius: 7px; background: #232c3e; border: 1px solid #39445a; cursor: pointer; min-width: 40px; text-align: center; }
   .chip.done { opacity: .38; }
   .chip.now { background: #2b6cb0; border-color: #63b3ed; font-weight: 700; }
   .playback { display: flex; gap: 6px; justify-content: center; align-items: center; flex-wrap: wrap; margin: 8px 0; }
-  .playback button { padding: 9px 13px; font-size: 15px; border-radius: 9px; border: 1px solid #39445a; background: #232c3e; color: #fff; cursor: pointer; min-height: 42px; }
+  .playback button { padding: 7px 11px; font-size: 14px; border-radius: 9px; border: 1px solid #39445a; background: #232c3e; color: #fff; cursor: pointer; min-height: 40px; }
   select { font-size: 14px; padding: 8px; border-radius: 8px; background: #232c3e; color: #fff; border: 1px solid #39445a; }
   /* ---- review grids (photo / manual) ---- */
   .net { display: grid; grid-template-columns: repeat(4, auto); gap: 8px 6px; justify-content: center; margin: 10px 0; }
@@ -117,28 +125,53 @@
   .guide-body ol, .guide-body ul { margin: 4px 0; padding-left: 22px; }
   .note { font-size: 12px; color: #9fb0c3; line-height: 1.6; margin-top: 18px; border-top: 1px solid #2c3648; padding-top: 10px; }
   .hidden { display: none !important; }
+  @media (max-width: 340px) { header h1 { font-size: 13px; } }
+  @media (max-height: 700px) {
+    #scene { width: min(94vw, 24vh); height: min(94vw, 24vh); }
+    main { padding-bottom: 0; }
+    .padgroup button { min-height: 34px; }
+    .status { min-height: 15px; }
+    .viewbtns { margin: 2px 0; }
+    body[data-mode="solve"] #scene { width: min(86vw, 22vh); height: min(86vw, 22vh); }
+    .sol-scroll { max-height: 15vh; }
+    .padgroup button { min-height: 36px; }
+    .viewbtns button.btn { min-height: 30px; }
+    .modebtn { min-height: 29px; }
+  }
+  @media (orientation: landscape) and (max-height: 540px) {
+    main { display: flex; flex-wrap: wrap; gap: 2px 12px; max-width: none; align-items: flex-start; }
+    #stage.on { flex: 0 0 43%; }
+    section.tab.active { flex: 1 1 0; min-width: 0; }
+    #scene, body[data-mode="solve"] #scene { width: min(41vw, 48vh); height: min(41vw, 48vh); }
+    .sol-scroll { max-height: 16vh; }
+    #solNow { font-size: 20px; min-height: 27px; }
+    .playback button { min-height: 36px; }
+    .pad { grid-template-columns: repeat(3, 1fr); }
+    .padgroup button { min-height: 34px; font-size: 14px; }
+    header h1 { font-size: 15px; }
+  }
 </style>
 </head>
-<body>
+<body data-mode="play">
 <header>
   <button id="btnBack" type="button">← 戻る</button>
   <h1>秋葉原キューブパズル ソルバー</h1>
-  <p>絵柄キューブ（3×3×3）を、中心の絵の向きまでそろえて解きます</p>
 </header>
 <nav class="tabs" id="tabbar">
-  <button data-tab="play" class="active">あそぶ・解く</button>
+  <button data-tab="play" class="active">あそぶ</button>
+  <button data-tab="solve">解法</button>
   <button data-tab="photo">写真で読む</button>
   <button data-tab="faces">見分け方</button>
   <button data-tab="guide">解き方</button>
 </nav>
 <main>
-  <!-- ================= PLAY ================= -->
-  <section class="tab active" id="tab-play">
+  <!-- ================= STAGE (shared cube) ================= -->
+  <div id="stage" class="on">
     <div class="modebar">
       <button type="button" id="modeRotate" class="modebtn active">⟳ キューブを回す</button>
       <button type="button" id="modeScroll" class="modebtn">↕ 画面をスクロール</button>
     </div>
-    <div id="scene"><div id="cubeWrap"><div id="cube"></div></div></div>
+    <div id="scene"><div id="moveToast"></div><div id="cubeWrap"><div id="cube"></div></div></div>
     <div class="viewbtns">
       <button class="btn" data-view="std">ななめ</button>
       <button class="btn" data-view="front">正面</button>
@@ -146,6 +179,10 @@
       <button class="btn" data-view="right">右から</button>
       <button class="btn" data-view="back">背面</button>
     </div>
+  </div>
+
+  <!-- ================= PLAY ================= -->
+  <section class="tab active" id="tab-play">
     <div class="status" id="playStatus"></div>
     <div class="substatus" id="centreStatus"></div>
     <div class="btnrow">
@@ -154,12 +191,18 @@
     </div>
     <div class="pad" id="movePad"></div>
     <div class="btnrow">
-      <button class="btn" id="btnReset">完成形に戻す</button>
-      <button class="btn" id="btnUndo">↩ 1手戻す</button>
-      <button class="btn" id="btnRedo">↪ 1手進める</button>
+      <button class="btn small" id="btnReset">完成形に戻す</button>
+      <button class="btn small" id="btnUndo">↩ 1手戻す</button>
+      <button class="btn small" id="btnRedo">↪ 1手進める</button>
     </div>
-    <div class="substatus" id="solveInfo"></div>
-    <div id="solPanel" class="hidden">
+  </section>
+
+  <!-- ================= SOLVE ================= -->
+  <section class="tab" id="tab-solve">
+    <p class="stepdesc" id="solEmpty">まだ解法がありません。「あそぶ」でキューブを回すか、写真で読み取ってから「この状態を解く」を押してください。解法ができると、ここでキューブを見ながら1手ずつ進められます。</p>
+    <div id="solBody" class="hidden">
+      <div class="substatus" id="solveInfo"></div>
+      <div id="solNow"></div>
       <div class="playback">
         <button id="pbFirst">⏮ 最初</button>
         <button id="pbBack">◀ 戻る</button>
@@ -167,13 +210,16 @@
         <button id="pbFwd">進む ▶</button>
         <button id="pbLast">最後 ⏭</button>
         <select id="pbSpeed">
-          <option value="750">ゆっくり</option>
-          <option value="450" selected>ふつう</option>
-          <option value="240">速い</option>
+          <option value="1100">ゆっくり</option>
+          <option value="750" selected>ふつう</option>
+          <option value="420">速い</option>
         </select>
       </div>
       <div class="substatus" id="pbProgress"></div>
-      <div id="solGroups"></div>
+      <div class="sol-scroll"><div id="solGroups"></div></div>
+      <div class="btnrow">
+        <button class="btn" id="btnToPlay">↩ あそぶに戻る</button>
+      </div>
     </div>
   </section>
 
@@ -271,7 +317,7 @@ function moveLabel(m) { return POSNAMES[m.face] + (m.power === 2 ? '2' : m.power
 const TILE_ZOOM = 1.04; // sample the centre of each face photo; the outer ~4% is the table the cube was photographed on
 function tilePos(k) { return (k + 1.5 * (TILE_ZOOM - 1)) / (3 * TILE_ZOOM - 1) * 100; }
 function tileBg(el, home, hrow, hcol, rot) {
-  el.style.backgroundImage = `url(assets/face${home}.jpg?v=3)`;
+  el.style.backgroundImage = `url(assets/face${home}.jpg?v=4)`;
   el.style.backgroundSize = `${300 * TILE_ZOOM}% ${300 * TILE_ZOOM}%`;
   el.style.backgroundPosition = `${tilePos(hcol)}% ${tilePos(hrow)}%`;
   el.style.transform = rot ? `rotate(${rot * 90}deg)` : '';
@@ -281,7 +327,7 @@ function tileImg(home, hrow, hcol) {
   // percentage background positions on matrix3d elements, which squeezed
   // the map and dragged the photo's beige edge into view.
   const im = document.createElement('img');
-  im.src = `assets/face${home}.jpg?v=3`;
+  im.src = `assets/face${home}.jpg?v=4`;
   im.alt = ''; im.draggable = false;
   const off = (k) => -(k + 1.5 * (TILE_ZOOM - 1)) * 100;
   im.style.cssText = `position:absolute;left:${off(hcol)}%;top:${off(hrow)}%;width:${300 * TILE_ZOOM}%;height:${300 * TILE_ZOOM}%;max-width:none;pointer-events:none;`;
@@ -294,6 +340,11 @@ $('#tabbar').addEventListener('click', (e) => {
   const b = e.target.closest('button[data-tab]'); if (!b) return;
   $$('#tabbar button').forEach(x => x.classList.toggle('active', x === b));
   $$('section.tab').forEach(x => x.classList.toggle('active', x.id === 'tab-' + b.dataset.tab));
+  const mode = b.dataset.tab;
+  document.body.dataset.mode = mode;
+  const st = document.querySelector('#stage');
+  if (st) st.classList.toggle('on', mode === 'play' || mode === 'solve');
+  if ((mode === 'play' || mode === 'solve') && typeof calibrateFixedFit === 'function') requestAnimationFrame(() => calibrateFixedFit());
   if (!backNav && tabHistory[tabHistory.length - 1] !== b.dataset.tab) tabHistory.push(b.dataset.tab);
   window.scrollTo(0, 0);
 });
@@ -477,6 +528,15 @@ function rotAxisAngle(v, axis, ang) {
   ];
 }
 let animating = false;
+let toastToken = 0;
+function showMoveToast(face, power) {
+  const t = document.querySelector('#moveToast'); if (!t) return;
+  const sym = power === 1 ? '↻' : power === 3 ? '↺' : '↻ 180°';
+  t.textContent = moveLabel({ face, power }) + ' ' + sym;
+  t.classList.add('show');
+  const tok = ++toastToken;
+  setTimeout(() => { if (toastToken === tok) t.classList.remove('show'); }, 620);
+}
 let stateGen = 0; // bumped whenever the cube state is replaced; stale animation callbacks check it before mutating state
 function animateMove(face, power, dur, done) {
   const n = POS_NORMAL[face];
@@ -490,12 +550,14 @@ function animateMove(face, power, dur, done) {
   $('#cube').appendChild(layer);
   els.forEach(el => layer.appendChild(el));
   const eff = power === 3 ? -1 : power; // quarter turns, CW positive viewed from outside
+  showMoveToast(face, power);
+  for (const el of els) { const img = el.querySelector('img'); if (img) img.style.filter = 'brightness(1.22) saturate(1.1)'; }
   const total = -Math.PI / 2 * eff;
   const t0 = performance.now();
   animating = true;
   function frame(t) {
     const f = Math.min(1, (t - t0) / dur);
-    const e = 1 - Math.pow(1 - f, 2);
+    const e = f < .5 ? 4 * f * f * f : 1 - Math.pow(-2 * f + 2, 3) / 2; // easeInOutCubic: clear start/stop
     const ang = total * e;
     const cols = [];
     for (const b of [[1, 0, 0], [0, 1, 0], [0, 0, 1]]) {
@@ -505,7 +567,7 @@ function animateMove(face, power, dur, done) {
     }
     layer.style.transform = `matrix3d(${cols[0][0]},${cols[0][1]},${cols[0][2]},0,${cols[1][0]},${cols[1][1]},${cols[1][2]},0,${cols[2][0]},${cols[2][1]},${cols[2][2]},0,0,0,0,1)`;
     if (f < 1) requestAnimationFrame(frame);
-    else { animating = false; done && done(); }
+    else { for (const el of els) { const img = el.querySelector('img'); if (img) img.style.filter = ''; } animating = false; done && done(); }
   }
   requestAnimationFrame(frame);
 }
@@ -514,7 +576,7 @@ function doMove(m, record = true, animate = true) {
   if (record) { history.push(m); future = []; }
   if (animate) {
     const gen = stateGen;
-    animateMove(m.face, m.power, 190, () => { if (gen === stateGen) { cube.applyMove(m.face, m.power); renderCube(); } });
+    animateMove(m.face, m.power, 300, () => { if (gen === stateGen) { cube.applyMove(m.face, m.power); renderCube(); } });
   } else { cube.applyMove(m.face, m.power); renderCube(); }
   clearSolutionIfManual();
 }
@@ -538,12 +600,12 @@ function clearSolutionIfManual() { /* manual moves invalidate a loaded solution 
     g.appendChild(row); pad.appendChild(g);
   }
 })();
-$('#btnReset').addEventListener('click', () => { stopPlayback(); stateGen++; cube = CubeState.solved(); history = []; future = []; solution = null; $('#solPanel').classList.add('hidden'); renderCube(); $('#playStatus').textContent = ''; });
+$('#btnReset').addEventListener('click', () => { stopPlayback(); stateGen++; cube = CubeState.solved(); history = []; future = []; clearSolutionUI(); renderCube(); $('#playStatus').textContent = ''; });
 $('#btnScramble').addEventListener('click', () => {
   stopPlayback();
   const F = 'UDFBLR'; const moves = []; let last = '';
   for (let i = 0; i < 25; i++) { let f; do { f = F[Math.floor(Math.random() * 6)]; } while (f === last); last = f; moves.push({ face: f, power: 1 + Math.floor(Math.random() * 3) }); }
-  stateGen++; cube = CubeState.solved(); history = []; future = []; solution = null; $('#solPanel').classList.add('hidden');
+  stateGen++; cube = CubeState.solved(); history = []; future = []; clearSolutionUI();
   for (const m of moves) { cube.applyMove(m.face, m.power); history.push(m); }
   renderCube(); $('#playStatus').textContent = 'シャッフルしました';
 });
@@ -613,6 +675,15 @@ $('#btnSolve').addEventListener('click', () => {
     } finally { $('#btnSolve').disabled = false; }
   }, 60);
 });
+function clearSolutionUI() {
+  solution = null;
+  const g = $('#solGroups'); if (g) g.innerHTML = '';
+  const n = $('#solNow'); if (n) n.textContent = '';
+  const pp = $('#pbProgress'); if (pp) pp.textContent = '';
+  const si = $('#solveInfo'); if (si) si.textContent = '';
+  const sb = $('#solBody'); if (sb) sb.classList.add('hidden');
+  const se = $('#solEmpty'); if (se) se.classList.remove('hidden');
+}
 function loadSolution(baseState, res) {
   stateGen++;
   solution = { base: baseState, moves: res.moves, posCount: res.positionMoves, fixCount: res.centreFixMoves };
@@ -620,9 +691,10 @@ function loadSolution(baseState, res) {
   cube = baseState.clone();
   history = []; future = [];
   renderCube(); renderSolutionPanel();
-  $('#solPanel').classList.remove('hidden');
-  setTimeout(() => { const p = $('#solPanel'); if (p) p.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 80);
+  $('#solBody').classList.remove('hidden');
+  $('#solEmpty').classList.add('hidden');
   $('#solveInfo').textContent = `位置そろえ ${res.positionMoves} 手 ＋ 中心修正 ${res.centreFixMoves} 手`;
+  gotoTab('solve');
 }
 function renderSolutionPanel() {
   const wrap = $('#solGroups'); wrap.innerHTML = '';
@@ -656,7 +728,7 @@ function gotoStep(idx, animate = false) {
     const forward = idx > solIdx;
     const m = forward ? solution.moves[solIdx] : { face: solution.moves[solIdx - 1].face, power: (4 - solution.moves[solIdx - 1].power) % 4 };
     playbackLock = true;
-    animateMove(m.face, m.power, 200, () => { if (gen !== stateGen) { playbackLock = false; return; } solIdx = idx; cube = stateAt(solIdx); renderCube(); updatePlaybackUI(); playbackLock = false; });
+    animateMove(m.face, m.power, 340, () => { if (gen !== stateGen) { playbackLock = false; return; } solIdx = idx; cube = stateAt(solIdx); renderCube(); updatePlaybackUI(); playbackLock = false; });
   } else {
     solIdx = idx; cube = stateAt(solIdx); renderCube(); updatePlaybackUI();
   }
@@ -664,6 +736,20 @@ function gotoStep(idx, animate = false) {
 function updatePlaybackUI() {
   if (!solution) return;
   $('#pbProgress').textContent = `${solIdx} / ${solution.moves.length} 手` + (solIdx === solution.moves.length ? '（完成！）' : '');
+  const nowEl = $('#solNow');
+  if (nowEl) {
+    if (solIdx >= solution.moves.length) nowEl.innerHTML = '🎉 完成！';
+    else {
+      const phase = solIdx < solution.posCount ? 'ピースの位置をそろえる' : '中心の向きを直す';
+      nowEl.innerHTML = `<span class="solphase">${phase}</span>次の手 ${solIdx + 1}. ${moveLabel(solution.moves[solIdx])}`;
+    }
+  }
+  const nowChip = document.querySelector('#solGroups .chip.now');
+  const scroller = document.querySelector('.sol-scroll');
+  if (nowChip && scroller) {
+    const t = nowChip.offsetTop - scroller.clientHeight / 2 + 14;
+    scroller.scrollTo({ top: Math.max(0, t), behavior: 'smooth' });
+  }
   $$('#solGroups .chip').forEach(c => {
     const i = Number(c.dataset.idx);
     c.classList.toggle('done', i < solIdx);
@@ -672,6 +758,7 @@ function updatePlaybackUI() {
   $('#pbPlay').textContent = playing ? '⏸ 一時停止' : '▶ 再生';
 }
 function stopPlayback() { playing = false; if (playTimer) { clearInterval(playTimer); playTimer = null; } if (solution) updatePlaybackUI(); }
+$('#btnToPlay').addEventListener('click', () => { stopPlayback(); gotoTab('play'); });
 $('#pbFirst').addEventListener('click', () => { stopPlayback(); gotoStep(0); });
 $('#pbLast').addEventListener('click', () => { stopPlayback(); gotoStep(solution ? solution.moves.length : 0); });
 $('#pbBack').addEventListener('click', () => { stopPlayback(); gotoStep(solIdx - 1, true); });
@@ -793,7 +880,6 @@ function makeReview(netEl, opts) {
       try {
         const res = solveWithCentres(state, solve);
         if (!res.ok) { show('解法が見つかりませんでした：' + (res.errors || []).join(' / ')); return; }
-        gotoTab('play');
         loadSolution(state.clone(), res);
         $('#playStatus').textContent = `入力を反映しました。解法は全${res.moves.length}手です`;
       } catch (err) { show('エラー：' + err.message); }
@@ -931,7 +1017,7 @@ function loadFaceImages() {
     const img = new Image();
     img.onload = () => { faceImages[f] = img; res(); };
     img.onerror = rej;
-    img.src = `assets/face${f}.jpg?v=3`;
+    img.src = `assets/face${f}.jpg?v=4`;
   })));
 }
 function drawRegion(src, sx, sy, sw, sh, size) {
