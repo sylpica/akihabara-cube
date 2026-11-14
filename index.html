@@ -279,7 +279,7 @@
         <li>黄色い枠にキューブの面をぴったり合わせ、タイルの境目の線を枠の線に重ねてください。</li>
         <li>真っ正面から撮る。斜めになると読み取りにくくなります。</li>
         <li>ピントが合わないときは、少し（20cmほど）離して枠に合わせ直してください。近すぎるとピントが合いません。それでも合わない場合は、iPhoneのカメラアプリで撮って「画像ファイルから選ぶ」のが確実です。</li>
-        <li>各ステップで指定された「写真の上」の向きを守ってください（上下が逆に写っても自動で直しますが、合っている方が確実です）。</li>
+        <li>向きは「中心の文字がまっすぐ読める」ことが目安です。多少回って写っても、少し位置がずれても、読み取りのときに自動で補正します（枠いっぱいに大きく写すのが一番確実です）。</li>
         <li>手ブレしやすいので、キューブを机に置くか、両手でしっかり持って撮ってください。</li>
         <li>結果で「要確認」になったマスは、実物と見比べて「手で直す」で直してください。</li>
       </ul>
@@ -1092,16 +1092,18 @@ $('#scene').addEventListener('pointerup', (e) => {
 /* ================= PHOTO ================= */
 const photoReview = makeReview($('[data-net="photo"]'), { allowClear: true, photo: true });
 const CAP_STEPS = [
-  { pos: 'F', title: '1/6 正面（中心：モモーイ時計）', desc: '面は「中心タイル」で見分けます。シャッフルされた状態では周りのタイルはバラバラですが、中心タイルは面ごとに決まっていて動きません。中心に「モモーイ時計」の文字がある面を、絵が正位置（「AKIHABARA」の文字が下）になる向きで正面にしてください（そのとき上には「秋葉原UDX」の面が来ます）。黄色い枠に面をぴったり合わせ、真っ正面から撮ってください。' },
-  { pos: 'R', title: '2/6 右面（中心：あっとほぉーむカフェ）', desc: '上の面を上にしたまま、キューブを左へ90°回します。中心に「あっとほぉーむカフェ」の文字がある面が正面に来るので、そのまま撮ります。' },
-  { pos: 'B', title: '3/6 背面（中心：ヨドバシカメラ）', desc: 'そのまま180°回して、中心に「ヨドバシカメラ マルチメディアAkiba」の文字がある面を正面に向けます（上はそのまま）。' },
-  { pos: 'L', title: '4/6 左面（中心：神田川）', desc: 'さらに90°回して、中心を斜めに神田川が流れる面を正面に向けます（上はそのまま）。' },
-  { pos: 'U', title: '5/6 上面（中心：秋葉原UDX）', desc: '中心に「秋葉原UDX」の文字と緑のビルがある面を撮ります。背面（中心：ヨドバシカメラ）側が写真の「上」になるように、その面をこちらへ向けてください。' },
-  { pos: 'D', title: '6/6 底面（中心：ハードオフ）', desc: '最後に、中心に「ハードオフ」の文字がある面（底面）を撮ります。キューブを奥へ倒すように裏返してその面をこちらへ向けます（正面＝中心がモモーイ時計の面が、写真の「上」になる向きです）。絵柄の中心の向きまで正確に読むため、底面も直接撮ります。' },
+  { pos: 'F', title: '1/6 正面（中心：モモーイ時計）', desc: '面は「中心タイル」で見分けます。シャッフルされた状態では周りのタイルはバラバラですが、中心タイルは面ごとに決まっていて動きません。中心に「モモーイ時計」の文字がある面を正面にし、文字が逆さまにならない向きで撮ってください（多少回って写っても、読み取りのときに自動で向きを直します）。黄色い枠に面をぴったり合わせ、真っ正面から撮ってください。' },
+  { pos: 'R', title: '2/6 右面（中心：あっとほぉーむカフェ）', desc: '中心に「あっとほぉーむカフェ」の文字がある面を正面にし、文字がまっすぐ読める向きで撮ってください（多少回って写っても自動で直します）。' },
+  { pos: 'B', title: '3/6 背面（中心：ヨドバシカメラ）', desc: '中心に「ヨドバシカメラ マルチメディアAkiba」の文字がある面を正面にし、文字がまっすぐ読める向きで撮ってください（多少回って写っても自動で直します）。' },
+  { pos: 'L', title: '4/6 左面（中心：神田川）', desc: '中心を斜めに神田川が流れる面を正面にしてください。文字の目印がない面なので、どの向きで撮っても大丈夫です（向きは自動で直します）。' },
+  { pos: 'U', title: '5/6 上面（中心：秋葉原UDX）', desc: '中心に「秋葉原UDX」の文字と緑のビルがある面を正面にし、ビルがまっすぐ立つ向き（文字が読める向き）で撮ってください。' },
+  { pos: 'D', title: '6/6 底面（中心：ハードオフ）', desc: '最後に、中心に「ハードオフ」の文字がある面（底面）を撮ります。キューブを裏返してその面をこちらへ向け、文字がまっすぐ読める向きで撮ってください。絵柄の中心の向きまで正確に読むため、底面も直接撮ります。' },
 ];
 const captures = {}; // pos -> canvas 300x300
 let capStep = 0;
 let stream = null, loadedImage = null;
+let loadedURL = null; // object URL backing loadedImage (revoked on replace/reset)
+let camEpoch = 0; // bumped by stopCamera(); a start that began before the bump aborts itself
 const CAMHINT_HTML = $('#camHint').innerHTML;
 function showCamHint() { const h = $('#camHint'); h.innerHTML = CAMHINT_HTML; h.classList.remove('hidden'); }
 /* A (near-)uniform black frame means frames are not reaching the element,
@@ -1118,16 +1120,22 @@ function frameIsBlack(v) {
   } catch (e) { return false; }
 }
 function stopCamera() {
-  if (!stream) return;
-  for (const t of stream.getTracks()) t.stop();
-  stream = null;
+  camEpoch++; // invalidate any camera start still in flight
+  if (stream) { for (const t of stream.getTracks()) t.stop(); stream = null; }
   const v = $('#camVideo'); try { v.pause(); } catch (e) {}
   v.srcObject = null; v.classList.add('hidden');
   if (!loadedImage) showCamHint();
 }
-async function startCamera() {
+let camStartPromise = null;
+function startCamera() {
+  if (camStartPromise) return camStartPromise; // concurrent presses share one start
+  camStartPromise = startCameraInner().finally(() => { camStartPromise = null; });
+  return camStartPromise;
+}
+async function startCameraInner() {
   const v = $('#camVideo');
-  if (stream) { v.classList.remove('hidden'); $('#camHint').classList.add('hidden'); $('#camImg').classList.add('hidden'); try { await v.play(); } catch (e) {} return true; }
+  if (stream) { v.classList.remove('hidden'); $('#camHint').classList.add('hidden'); $('#camImg').classList.add('hidden'); if (v.paused) { try { await v.play(); } catch (e) {} } return true; }
+  const epoch = camEpoch;
   // Show the video element BEFORE the stream attaches: in WKWebView a video
   // that is display:none when srcObject is set may never paint frames -- the
   // preview stays black while capturing still works (user report 2026-11-14).
@@ -1136,12 +1144,21 @@ async function startCamera() {
   // playback-oriented audio session (Safari 17+ Audio Session API) before
   // opening this video-only capture.
   try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}
+  let s = null;
   try {
-    stream = await navigator.mediaDevices.getUserMedia({
+    s = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1920 } },
       audio: false,
     });
   } catch (e) { v.classList.add('hidden'); if (!loadedImage) showCamHint(); return false; }
+  if (epoch !== camEpoch) {
+    // stopCamera() ran (or the tab was left) while the request was pending:
+    // never let the camera end up running invisibly behind another tab.
+    for (const t of s.getTracks()) t.stop();
+    v.classList.add('hidden'); if (!loadedImage) showCamHint();
+    return false;
+  }
+  stream = s;
   v.muted = true; v.playsInline = true; v.srcObject = stream;
   try {
     await new Promise(res => { if (v.readyState >= 2) res(); else { v.addEventListener('loadedmetadata', res, { once: true }); setTimeout(res, 1500); } });
@@ -1157,12 +1174,14 @@ async function startCamera() {
     }
   } catch (e) { /* focus stays at the platform default */ }
   // Paint check: if frames are not reaching the element, re-attach once;
-  // if it is still black, say so (capturing still works).
+  // if it is still black, say so (capturing still works). Guarded by the
+  // stream identity so a stale timer can never touch a newer stream.
+  const myStream = stream;
   setTimeout(async () => {
-    if (!stream || !frameIsBlack(v)) return;
-    try { v.pause(); v.srcObject = null; await new Promise(r => setTimeout(r, 80)); v.srcObject = stream; await v.play(); } catch (e) {}
+    if (stream !== myStream || !frameIsBlack(v)) return;
+    try { v.pause(); v.srcObject = null; await new Promise(r => setTimeout(r, 80)); if (stream !== myStream) return; v.srcObject = stream; await v.play(); } catch (e) {}
     setTimeout(() => {
-      if (!stream || !frameIsBlack(v)) return;
+      if (stream !== myStream || !frameIsBlack(v)) return;
       v.classList.add('hidden');
       const h = $('#camHint');
       h.innerHTML = 'プレビューが映っていません（真っ黒なまま）。そのまま「📷 撮影する」で撮影はできます。映したいときは、一度ほかのタブに切り替えてから戻ってください。';
@@ -1212,35 +1231,73 @@ function captureFrom(src, sw, sh) {
   ctx.drawImage(src, (300 - dw) / 2, (300 - dh) / 2, dw, dh);
   return cv;
 }
+let shooting = false;
 $('#btnShot').addEventListener('click', async () => {
-  const pos = CAP_STEPS[capStep].pos;
-  const v = $('#camVideo');
-  if (!stream && !loadedImage) { const ok = await startCamera(); if (!ok && !loadedImage) { $('#fileInput').click(); return; } }
-  const wasRetake = !!captures[pos];
-  if (stream && v.videoWidth) captures[pos] = captureFrom(v, v.videoWidth, v.videoHeight);
-  else if (loadedImage) captures[pos] = captureFrom(loadedImage, loadedImage.naturalWidth, loadedImage.naturalHeight);
-  else return;
-  capNote = wasRetake ? POSFACE_LABEL[pos].split('（')[0] + 'を撮り直しました。' : '';
-  capPicked = false;
-  // advance to next uncaptured
-  const nxt = CAP_STEPS.findIndex(s => !captures[s.pos]);
-  if (nxt >= 0) capStep = nxt;
-  updateCapUI();
+  if (shooting) return; // ignore extra presses while a shot is in flight
+  shooting = true;
+  try {
+    const pos = CAP_STEPS[capStep].pos;
+    const v = $('#camVideo');
+    // A stream whose tracks the OS ended (app switch, call, ...) can never
+    // deliver new frames; drop it so a fresh camera starts below.
+    if (stream && stream.getVideoTracks().every(t => t.readyState !== 'live')) stopCamera();
+    if (!stream && !loadedImage) {
+      const ok = await startCamera();
+      if (!ok && !loadedImage) { if (document.body.dataset.mode === 'photo') $('#fileInput').click(); return; }
+    }
+    if (stream) {
+      // iOS pauses the video element around system dialogs (e.g. the reset
+      // confirm); a paused element would otherwise keep "capturing" the
+      // same frozen frame and the preview would look frozen (user report).
+      v.classList.remove('hidden'); $('#camHint').classList.add('hidden'); $('#camImg').classList.add('hidden');
+      if (v.paused) { try { await v.play(); } catch (e) {} }
+    }
+    const wasRetake = !!captures[pos];
+    if (stream && v.videoWidth) captures[pos] = captureFrom(v, v.videoWidth, v.videoHeight);
+    else if (loadedImage) captures[pos] = captureFrom(loadedImage, loadedImage.naturalWidth, loadedImage.naturalHeight);
+    else return;
+    capNote = wasRetake ? POSFACE_LABEL[pos].split('（')[0] + 'を撮り直しました。' : '';
+    capPicked = false;
+    // advance to next uncaptured
+    const nxt = CAP_STEPS.findIndex(s => !captures[s.pos]);
+    if (nxt >= 0) capStep = nxt;
+    updateCapUI();
+  } finally { shooting = false; }
 });
 $('#btnFile').addEventListener('click', () => $('#fileInput').click());
 $('#btnCapReset').addEventListener('click', () => {
-  if (!Object.keys(captures).length && $('#photoReview').classList.contains('hidden')) return;
+  if (!Object.keys(captures).length && !loadedImage && $('#photoReview').classList.contains('hidden')) return;
   if (!confirm('撮影した写真を全部消して、最初から撮り直しますか？')) return;
   for (const k of Object.keys(captures)) delete captures[k];
   capStep = 0; capNote = ''; capPicked = false;
+  loadedImage = null;
+  if (loadedURL) { URL.revokeObjectURL(loadedURL); loadedURL = null; }
+  const ci = $('#camImg'); ci.classList.add('hidden'); ci.removeAttribute('src');
   $('#photoReview').classList.add('hidden');
+  if (stream) {
+    // iOS pauses the preview around the confirm dialog; resume it so the
+    // camera screen does not stay frozen after a reset (user report).
+    const v = $('#camVideo');
+    v.classList.remove('hidden'); $('#camHint').classList.add('hidden');
+    if (v.paused) { v.play().catch(() => {}); }
+  } else showCamHint();
   updateCapUI();
 });
 $('#fileInput').addEventListener('change', (e) => {
-  const f = e.target.files[0]; if (!f) return;
+  const f = e.target.files[0];
+  e.target.value = ''; // allow picking the same file again afterwards
+  if (!f) return;
+  if (loadedURL) { URL.revokeObjectURL(loadedURL); loadedURL = null; }
+  loadedURL = URL.createObjectURL(f);
   const img = new Image();
   img.onload = () => { loadedImage = img; stopCamera(); const ci = $('#camImg'); ci.src = img.src; ci.classList.remove('hidden'); $('#camVideo').classList.add('hidden'); $('#camHint').classList.add('hidden'); };
-  img.src = URL.createObjectURL(f);
+  img.onerror = () => {
+    if (loadedURL) { URL.revokeObjectURL(loadedURL); loadedURL = null; }
+    const h = $('#camHint');
+    h.innerHTML = 'そのファイルは画像として読み込めませんでした。写真ファイルを選んでください。';
+    h.classList.remove('hidden');
+  };
+  img.src = loadedURL;
 });
 /* ---- image matching ---- */
 const faceImages = {};
@@ -1275,7 +1332,20 @@ function standardizeCell(cv) {
   x.putImageData(id, 0, 0);
   return c2;
 }
-function featuresOf(canvas48) {
+function grayVec(cv, n) {
+  const g = drawRegion(cv, 0, 0, 48, 48, n);
+  const gd = g.getContext('2d').getImageData(0, 0, n, n).data;
+  const out = new Float32Array(n * n);
+  let mean = 0;
+  for (let i = 0; i < n * n; i++) { out[i] = 0.299 * gd[i * 4] + 0.587 * gd[i * 4 + 1] + 0.114 * gd[i * 4 + 2]; mean += out[i]; }
+  mean /= (n * n);
+  let norm = 0;
+  for (let i = 0; i < n * n; i++) { out[i] -= mean; norm += out[i] * out[i]; }
+  norm = Math.sqrt(norm) || 1;
+  for (let i = 0; i < n * n; i++) out[i] /= norm;
+  return out;
+}
+function featuresOf(canvas48, fast) {
   const cv = standardizeCell(canvas48);
   const ctx = cv.getContext('2d');
   const data = ctx.getImageData(0, 0, 48, 48).data;
@@ -1286,17 +1356,10 @@ function featuresOf(canvas48) {
   }
   let sum = 0; for (let i = 0; i < 64; i++) sum += hist[i];
   for (let i = 0; i < 64; i++) hist[i] /= sum;
-  const g24 = drawRegion(cv, 0, 0, 48, 48, 24);
-  const gd = g24.getContext('2d').getImageData(0, 0, 24, 24).data;
-  const gray = new Float32Array(576);
-  let mean = 0;
-  for (let i = 0; i < 576; i++) { gray[i] = 0.299 * gd[i * 4] + 0.587 * gd[i * 4 + 1] + 0.114 * gd[i * 4 + 2]; mean += gray[i]; }
-  mean /= 576;
-  let norm = 0;
-  for (let i = 0; i < 576; i++) { gray[i] -= mean; norm += gray[i] * gray[i]; }
-  norm = Math.sqrt(norm) || 1;
-  for (let i = 0; i < 576; i++) gray[i] /= norm;
-  return { hist, gray };
+  // fast mode (alignment search only) uses a 12x12 pattern: the alignment
+  // peak sits at the same place, at a quarter of the dot-product cost.
+  if (fast) return { hist, gray: grayVec(cv, 12) };
+  return { hist, gray: grayVec(cv, 24), gray12: grayVec(cv, 12) };
 }
 function rotateCanvas48(src, k) {
   if (k === 0) return src;
@@ -1330,20 +1393,36 @@ function cellCanvas(cap, ox, oy, size, r, c, out) {
   const cell = size / 3, inset = cell * 0.1;
   return drawRegion(cap, ox + c * cell + inset, oy + r * cell + inset, cell - inset * 2, cell - inset * 2, out || 48);
 }
-function fullCellScore(cap, ox, oy, size) {
+function cellBaseFeatures(canvas48) {
+  // Standardisation and the colour histogram are rotation-invariant, so
+  // they are computed once per cell and shared by the 4 rotations; only
+  // the gray pattern differs per rotation.
+  const cv = standardizeCell(canvas48);
+  const data = cv.getContext('2d').getImageData(0, 0, 48, 48).data;
+  const hist = new Float32Array(64);
+  for (let i = 0; i < data.length; i += 4) {
+    const r = data[i] >> 6, g = data[i + 1] >> 6, b = data[i + 2] >> 6;
+    hist[(r * 4 + g) * 4 + b]++;
+  }
+  let sum = 0; for (let i = 0; i < 64; i++) sum += hist[i];
+  for (let i = 0; i < 64; i++) hist[i] /= sum;
+  return { hist, std: cv };
+}
+function fullCellScore(cap, ox, oy, size, cells, fast) {
   // summed best full-feature score over the 8 outer cells (centre excluded:
   // it barely moves with alignment). Peaks sharply at the true alignment,
   // unlike colour histograms, which stay flat under shifted light.
-  const cells = [[0, 0], [0, 1], [0, 2], [1, 0], [1, 2], [2, 0], [2, 1], [2, 2]];
+  const CELLS = cells || [[0, 0], [0, 1], [0, 2], [1, 0], [1, 2], [2, 0], [2, 1], [2, 2]];
   let tot = 0;
-  for (const [r, c] of cells) {
+  for (const [r, c] of CELLS) {
     const cv = cellCanvas(cap, ox, oy, size, r, c, 48);
-    const feats = [0, 1, 2, 3].map(k => featuresOf(rotateCanvas48(cv, k)));
+    const base = cellBaseFeatures(cv);
     let best = -1;
-    for (const key of Object.keys(refTiles)) {
-      const t = refTiles[key];
-      for (let k = 0; k < 4; k++) {
-        const sc = scoreFeat({ hist: feats[0].hist, gray: feats[k].gray }, t.feat);
+    for (let k = 0; k < 4; k++) {
+      const gray = grayVec(rotateCanvas48(base.std, k), fast ? 12 : 24);
+      for (const key of Object.keys(refTiles)) {
+        const t = refTiles[key];
+        const sc = scoreFeat({ hist: base.hist, gray }, fast ? { hist: t.feat.hist, gray: t.feat.gray12 } : t.feat);
         if (sc > best) best = sc;
       }
     }
@@ -1356,19 +1435,57 @@ function fullCellScore(cap, ox, oy, size) {
    framing when the improvement is clear. */
 function estimateAlign(cap) {
   const idSc = fullCellScore(cap, 0, 0, 300);
-  let best = { ox: 0, oy: 0, size: 300, sc: idSc };
-  for (const size of [300, 282, 264]) {
-    for (const dx of [-12, 0, 12]) for (const dy of [-12, 0, 12]) {
+  // A well-framed capture scores high at the identity alignment; only pay
+  // for the wide search when the framing is actually off.
+  if (idSc >= 7.25) return { ox: 0, oy: 0, size: 300 };
+  /* The matcher objective peaks sharply at the TRUE alignment (measured:
+     truth 6.6-7.9 vs wrong basins 5.7-7.2), so this is a search problem,
+     not a scoring problem. Cover sizes 228-300 (a face filling only ~76%
+     of the frame still reads) and offsets to +-24px, rank coarsely on 6
+     cells, then refine several basins -- a single greedy refine walks
+     into the wrong basin on faces with self-similar map tiles. */
+  const SIX = [[0, 0], [0, 1], [0, 2], [2, 0], [2, 1], [2, 2]];
+  const FOUR = [[0, 0], [0, 2], [2, 0], [2, 2]];
+  const coarse = [];
+  for (const size of [300, 288, 276, 264, 252, 240, 228]) {
+    for (const dx of [-24, -12, 0, 12, 24]) for (const dy of [-24, -12, 0, 12, 24]) {
       const ox = (300 - size) / 2 + dx, oy = (300 - size) / 2 + dy;
-      if (ox === 0 && oy === 0 && size === 300) continue;
-      const sc = fullCellScore(cap, ox, oy, size);
-      if (sc > best.sc) best = { ox, oy, size, sc };
+      coarse.push({ ox, oy, size, sc: fullCellScore(cap, ox, oy, size, FOUR, true) });
     }
   }
-  for (const dx of [-6, -3, 0, 3, 6]) for (const dy of [-6, -3, 0, 3, 6]) {
-    if (!dx && !dy) continue;
-    const sc = fullCellScore(cap, best.ox + dx, best.oy + dy, best.size);
-    if (sc > best.sc) best = { ox: best.ox + dx, oy: best.oy + dy, size: best.size, sc };
+  coarse.sort((a, b) => b.sc - a.sc);
+  // Search stages run on the fast (12x12 pattern) score over a cell
+  // subset; every refined candidate is re-scored once with the full
+  // 8-cell score before it can win.
+  const refine = (cand) => {
+    let cur = { ox: cand.ox, oy: cand.oy, size: cand.size, sc: fullCellScore(cap, cand.ox, cand.oy, cand.size, SIX, true) };
+    for (const [step, rad] of [[3, 6], [1, 2]]) {
+      for (let dx = -rad; dx <= rad; dx += step) for (let dy = -rad; dy <= rad; dy += step) {
+        if (!dx && !dy) continue;
+        const sc = fullCellScore(cap, cur.ox + dx, cur.oy + dy, cur.size, SIX, true);
+        if (sc > cur.sc) cur = { ox: cur.ox + dx, oy: cur.oy + dy, size: cur.size, sc };
+      }
+    }
+    return { ...cur, sc: fullCellScore(cap, cur.ox, cur.oy, cur.size) };
+  };
+  let best = { ox: 0, oy: 0, size: 300, sc: idSc };
+  const shortlist = [];
+  for (const cand of coarse) {
+    if (shortlist.length >= 5) break;
+    if (shortlist.some(p => Math.abs(p.ox - cand.ox) <= 12 && Math.abs(p.oy - cand.oy) <= 12 && Math.abs(p.size - cand.size) <= 12)) continue;
+    shortlist.push(cand);
+  }
+  for (const cand of shortlist) {
+    if (cand.ox === 0 && cand.oy === 0 && cand.size === 300) continue;
+    const r = refine(cand);
+    if (r.sc > best.sc) best = r;
+  }
+  // size probe around the winner (keeps the face centre fixed)
+  for (const ds of [-6, 6]) {
+    const size = best.size + ds;
+    if (size < 220 || size > 306) continue;
+    const sc = fullCellScore(cap, best.ox - ds / 2, best.oy - ds / 2, size);
+    if (sc > best.sc) best = { ox: best.ox - ds / 2, oy: best.oy - ds / 2, size, sc };
   }
   if (best.sc < idSc + 0.1) return { ox: 0, oy: 0, size: 300 };
   return best;
@@ -1383,17 +1500,18 @@ function gridSrcIdx(r, c, g) {
 }
 $('#btnAnalyse').addEventListener('click', async () => {
   $('#btnAnalyse').disabled = true; $('#btnAnalyse').textContent = '読み取り中…';
+  $('#btnShot').disabled = true; $('#btnCapReset').disabled = true; // keep the capture set stable during analysis
   try {
     stopCamera();
     await loadFaceImages(); buildRefTiles();
-    analyseCaptures();
+    await analyseCaptures();
     const pn = $('#photoNote');
     if (lastPhotoNotes.length) { pn.style.display = 'block'; pn.textContent = lastPhotoNotes.join(' '); } else pn.style.display = 'none';
     $('#photoReview').classList.remove('hidden');
     $('#photoReview').scrollIntoView({ behavior: 'smooth' });
   } catch (err) {
     alert('読み取りでエラーが起きました：' + err.message);
-  } finally { $('#btnAnalyse').disabled = false; $('#btnAnalyse').textContent = '読み取り結果を確認する'; }
+  } finally { $('#btnAnalyse').disabled = false; $('#btnAnalyse').textContent = '読み取り結果を確認する'; $('#btnShot').disabled = false; $('#btnCapReset').disabled = false; }
 });
 let lastPhotoNotes = [];
 function rotateFaceAssign(R, pos, g) {
@@ -1431,11 +1549,16 @@ function validationErrorCount(R) {
   const v = validateFacelets(col.fc);
   return v.ok ? 0 : v.errors.length;
 }
-function analyseCaptures() {
+async function analyseCaptures() {
   const R = photoReview;
   lastPhotoNotes = [];
   const cellLists = {}; // pos -> rows
+  let faceIdx = 0;
   for (const step of CAP_STEPS) {
+    // yield between faces so the progress label can paint; a fully
+    // synchronous run would leave the page looking frozen for seconds
+    if (faceIdx > 0) { $('#btnAnalyse').textContent = `読み取り中…（${faceIdx}/6面ずみ）`; await new Promise(r => setTimeout(r, 10)); }
+    faceIdx++;
     const pos = step.pos;
     const cap = captures[pos];
     const al = estimateAlign(cap);
