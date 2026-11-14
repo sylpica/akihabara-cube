@@ -11,24 +11,22 @@
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { margin: 0; padding: 0; }
   body { font-family: "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Noto Sans JP", sans-serif; background: #14181f; color: #eef1f5; }
-  header { display: flex; align-items: center; gap: 10px; padding: 6px 12px 0; position: relative; z-index: 70; }
-  #btnBack { display: block; margin: 0; flex: none; padding: 6px 12px; font-size: 13px; border-radius: 9px; border: 1px solid #39445a; background: #232c3e; color: #eef1f5; cursor: pointer; min-height: 34px; }
-  header h1 { font-size: 16px; margin: 0; letter-spacing: .03em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .tabs { display: flex; gap: 4px; padding: 5px 8px 0; position: sticky; top: 0; background: #14181f; z-index: 30; overflow-x: auto; }
-  .tabs button { flex: 1 1 0; min-width: 0; padding: 7px 1px; font-size: 12px; border: 1px solid #39445a; background: #1d2432; color: #cfd9e6; border-radius: 10px 10px 0 0; cursor: pointer; white-space: nowrap; }
+  #btnBack { position: fixed; top: 5px; left: 8px; z-index: 70; padding: 6px 11px; font-size: 14px; border-radius: 10px; border: 1px solid #39445a; background: #232c3e; color: #eef1f5; cursor: pointer; min-height: 33px; margin: 0; }
+  .tabs { display: flex; gap: 4px; padding: 5px 8px 0 52px; position: sticky; top: 0; background: #14181f; z-index: 30; overflow-x: auto; }
+  .tabs button { flex: 1 1 0; min-width: 0; padding: 7px 1px; font-size: 11.5px; border: 1px solid #39445a; background: #1d2432; color: #cfd9e6; border-radius: 10px 10px 0 0; cursor: pointer; white-space: nowrap; }
   .tabs button.active { background: #2b6cb0; border-color: #2b6cb0; color: #fff; font-weight: 700; }
   main { padding: 6px 8px 4px; max-width: 600px; margin: 0 auto; }
   section.tab { display: none; }
   section.tab.active { display: block; }
   .modebar { display: flex; gap: 6px; justify-content: center; margin: 0 0 2px; }
   html, button, .chip { touch-action: manipulation; } /* no double-tap zoom on rapid taps */
-  .modebtn { flex: 1; max-width: 190px; padding: 5px 6px; font-size: 12.5px; border-radius: 9px; border: 1px solid #39445a; background: #1d2432; color: #cfd9e6; cursor: pointer; min-height: 31px; }
+  .modebtn { flex: 1; max-width: 190px; padding: 5px 6px; font-size: 12px; border-radius: 9px; border: 1px solid #39445a; background: #1d2432; color: #cfd9e6; cursor: pointer; min-height: 30px; }
   .modebtn.active { background: #2b6cb0; border-color: #2b6cb0; color: #fff; font-weight: 700; }
   /* ---- 3D scene ---- */
   #stage { display: none; }
   #stage.on { display: block; }
-  #scene { width: min(94vw, 30vh); height: min(94vw, 30vh); margin: 2px auto; perspective: 1800px; touch-action: none; position: relative; }
-  body[data-mode="solve"] #scene { width: min(86vw, 23vh); height: min(86vw, 23vh); }
+  #scene { width: min(96vw, 38vh); height: min(96vw, 38vh); margin: 2px auto; perspective: 1800px; touch-action: none; position: relative; }
+  body[data-mode="solve"] #scene { width: min(92vw, 33vh); height: min(92vw, 33vh); }
   #moveToast { position: absolute; left: 50%; top: 6px; transform: translateX(-50%); background: rgba(18,24,36,.9); border: 1.5px solid #63b3ed; color: #fff; font-size: 19px; font-weight: 800; padding: 5px 18px; border-radius: 999px; opacity: 0; transition: opacity .18s; pointer-events: none; z-index: 6; white-space: nowrap; }
   #moveToast.show { opacity: 1; }
   #cubeWrap { width: 100%; height: 100%; position: absolute; transform-style: preserve-3d; }
@@ -38,33 +36,33 @@
      painted under the <img>, so the black grid of the real cube was lost) */
   .sticker::after { content: ""; position: absolute; inset: 0; border-radius: 7px; box-shadow: inset 0 0 0 2px rgba(8,8,12,.92), inset 0 0 0 3px rgba(255,255,255,.05); pointer-events: none; }
   .viewbtns, .btnrow { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin: 4px 0; }
-  .viewbtns button.btn { padding: 5px 9px; font-size: 12.5px; min-height: 32px; }
-  button.btn.small { min-height: 36px; font-size: 13px; padding: 7px 10px; }
-  button.btn { padding: 9px 12px; font-size: 14px; border-radius: 9px; border: 1px solid #39445a; background: #232c3e; color: #eef1f5; cursor: pointer; min-height: 42px; }
+  .viewbtns button.btn { padding: 5px 9px; font-size: 12px; min-height: 30px; }
+  button.btn.small { min-height: 34px; font-size: 12.5px; padding: 6px 10px; }
+  button.btn { padding: 8px 11px; font-size: 13px; border-radius: 9px; border: 1px solid #39445a; background: #232c3e; color: #eef1f5; cursor: pointer; min-height: 38px; }
   button.btn:active { transform: scale(.97); }
   button.btn.primary { background: #2b6cb0; border-color: #2b6cb0; font-weight: 700; }
   button.btn.warn { background: #744210; border-color: #975a16; }
   button.btn:disabled { opacity: .45; }
-  .status { text-align: center; font-size: 13px; color: #a8e063; min-height: 17px; margin: 2px 0; }
+  .status { text-align: center; font-size: 12.5px; color: #a8e063; min-height: 17px; margin: 2px 0; }
   .substatus { text-align: center; font-size: 12px; color: #9fb0c3; min-height: 14px; margin: 1px 0; }
   /* move pad */
   .pad { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin: 6px 0; }
   .padgroup { background: #1a2130; border: 1px solid #2c3648; border-radius: 10px; padding: 5px; }
   .padgroup .lab { font-size: 11.5px; color: #c8d4e4; text-align: center; margin-bottom: 4px; white-space: nowrap; }
   .padgroup .row { display: flex; gap: 5px; }
-  .padgroup button { flex: 1; padding: 6px 0; font-size: 15px; border-radius: 8px; border: 1px solid #39445a; background: #28324a; color: #fff; cursor: pointer; min-height: 38px; }
+  .padgroup button { flex: 1; padding: 6px 0; font-size: 14px; border-radius: 8px; border: 1px solid #39445a; background: #28324a; color: #fff; cursor: pointer; min-height: 36px; }
   /* solution */
   #solNow { text-align: center; font-size: 23px; font-weight: 800; margin: 2px 0; min-height: 31px; }
   #solNow .solphase { display: block; font-size: 11.5px; font-weight: 600; color: #ffd479; letter-spacing: .06em; }
   .sol-scroll { position: relative; max-height: 17vh; overflow-y: auto; border-top: 1px solid #2c3648; border-bottom: 1px solid #2c3648; padding: 2px 2px 6px; margin-top: 4px; -webkit-overflow-scrolling: touch; }
   .solgroup { font-size: 13px; font-weight: 700; margin: 10px 0 4px; color: #ffd479; }
   .chips { display: flex; flex-wrap: wrap; gap: 4px; }
-  .chip { padding: 5px 8px; font-size: 14px; border-radius: 7px; background: #232c3e; border: 1px solid #39445a; cursor: pointer; min-width: 40px; text-align: center; }
+  .chip { padding: 5px 8px; font-size: 13px; border-radius: 7px; background: #232c3e; border: 1px solid #39445a; cursor: pointer; min-width: 40px; text-align: center; }
   .chip.done { opacity: .38; }
   .chip.now { background: #2b6cb0; border-color: #63b3ed; font-weight: 700; }
   .playback { display: flex; gap: 6px; justify-content: center; align-items: center; flex-wrap: wrap; margin: 8px 0; }
-  .playback button { padding: 7px 11px; font-size: 14px; border-radius: 9px; border: 1px solid #39445a; background: #232c3e; color: #fff; cursor: pointer; min-height: 40px; }
-  select { font-size: 14px; padding: 8px; border-radius: 8px; background: #232c3e; color: #fff; border: 1px solid #39445a; }
+  .playback button { padding: 7px 11px; font-size: 13px; border-radius: 9px; border: 1px solid #39445a; background: #232c3e; color: #fff; cursor: pointer; min-height: 38px; }
+  select { font-size: 13px; padding: 7px; border-radius: 8px; background: #232c3e; color: #fff; border: 1px solid #39445a; }
   /* ---- review grids (photo / manual) ---- */
   .net { display: grid; grid-template-columns: repeat(4, auto); gap: 8px 6px; justify-content: center; margin: 10px 0; }
   .net .blank { width: 1px; }
@@ -91,6 +89,7 @@
   #camBox { width: 100%; aspect-ratio: 1; background: #000; border-radius: 12px; overflow: hidden; position: relative; border: 2px solid #39445a; }
   #camBox video, #camBox img { width: 100%; height: 100%; object-fit: cover; display: block; }
   #camBox .guide { position: absolute; inset: 0; border: 3px dashed rgba(255,212,121,.0); pointer-events: none; }
+  #camBox .camhint { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center; padding: 18px; font-size: 13px; color: #9fb0c3; line-height: 1.7; }
   .stepinfo { text-align: center; font-size: 15px; font-weight: 700; margin: 6px 0 2px; }
   .stepdesc { text-align: center; font-size: 12.5px; color: #c8d4e4; margin: 0 0 6px; line-height: 1.55; }
   .thumbs { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; margin: 8px 0; }
@@ -125,14 +124,13 @@
   .guide-body ol, .guide-body ul { margin: 4px 0; padding-left: 22px; }
   .note { font-size: 12px; color: #9fb0c3; line-height: 1.6; margin-top: 18px; border-top: 1px solid #2c3648; padding-top: 10px; }
   .hidden { display: none !important; }
-  @media (max-width: 340px) { header h1 { font-size: 13px; } }
   @media (max-height: 700px) {
-    #scene { width: min(94vw, 24vh); height: min(94vw, 24vh); }
+    #scene { width: min(96vw, 32vh); height: min(96vw, 32vh); }
     main { padding-bottom: 0; }
     .padgroup button { min-height: 34px; }
     .status { min-height: 15px; }
     .viewbtns { margin: 2px 0; }
-    body[data-mode="solve"] #scene { width: min(86vw, 22vh); height: min(86vw, 22vh); }
+    body[data-mode="solve"] #scene { width: min(92vw, 30vh); height: min(92vw, 30vh); }
     .sol-scroll { max-height: 15vh; }
     .padgroup button { min-height: 36px; }
     .viewbtns button.btn { min-height: 30px; }
@@ -148,15 +146,11 @@
     .playback button { min-height: 36px; }
     .pad { grid-template-columns: repeat(3, 1fr); }
     .padgroup button { min-height: 34px; font-size: 14px; }
-    header h1 { font-size: 15px; }
   }
 </style>
 </head>
 <body data-mode="play">
-<header>
-  <button id="btnBack" type="button">← 戻る</button>
-  <h1>秋葉原キューブパズル ソルバー</h1>
-</header>
+<button id="btnBack" type="button" aria-label="戻る">←</button>
 <nav class="tabs" id="tabbar">
   <button data-tab="play" class="active">あそぶ</button>
   <button data-tab="solve">解法</button>
@@ -229,8 +223,9 @@
     <p class="stepdesc" id="capDesc"></p>
     <div id="camWrap">
       <div id="camBox">
-        <video id="camVideo" playsinline muted autoplay></video>
+        <video id="camVideo" class="hidden" playsinline muted autoplay></video>
         <img id="camImg" class="hidden" alt="撮影した面">
+        <div class="camhint" id="camHint">「📷 撮影する」を押した時だけカメラが起動します（その時に許可ダイアログが出ます）。<br>カメラを使わず「画像ファイルから選ぶ」こともできます。</div>
         <div class="guide"></div>
       </div>
     </div>
@@ -942,6 +937,26 @@ $('#sheetClear').addEventListener('click', () => {
   const { pos, r, c } = R.cur;
   R.assign[pos][r][c] = null; R.render(); openPicker(R, pos, r, c);
 });
+/* ================= IDENTIFY CARDS ================= */
+(function renderFaceCards() {
+  const wrap = $('#faceCards');
+  for (const f of ['A', 'B', 'C', 'D', 'E', 'F']) {
+    const info = FACE_INFO[f];
+    const nb = FACE_NEIGHBORS[f];
+    const card = document.createElement('div'); card.className = 'card';
+    card.innerHTML = `
+      <div class="fimg"><img src="assets/face${f}.jpg?v=4" alt="${f}面 ${info.name}"></div>
+      <div>
+        <h3>${f}面：${info.name}</h3>
+        <p class="cen">中心：${info.center}</p>
+        <div class="marks">${info.marks.map(m => `<span>${m}</span>`).join('')}</div>
+        <p class="rel">対面：${OPPOSITE[f]}面（${FACENAME[OPPOSITE[f]]}）<br>
+        隣の面（写真の向き）：上＝${nb[0]}面（${FACENAME[nb[0]]}）／右＝${nb[1]}面（${FACENAME[nb[1]]}）／下＝${nb[2]}面（${FACENAME[nb[2]]}）／左＝${nb[3]}面（${FACENAME[nb[3]]}）</p>
+      </div>`;
+    wrap.appendChild(card);
+  }
+})();
+/* ================= PHOTO ================= */
 const photoReview = makeReview($('[data-net="photo"]'), { allowClear: true, autoFaces: ['D'], photo: true });
 const CAP_STEPS = [
   { pos: 'F', title: '1/5 正面：秋葉原駅前', desc: '基本の持ち方（秋葉原駅前が正面・末広町が上面）のまま、正面を撮ります。面全体を枠いっぱいに、真っ正面から撮ってください。' },
@@ -990,7 +1005,7 @@ function captureFrom(src, sw, sh) {
 $('#btnShot').addEventListener('click', async () => {
   const pos = CAP_STEPS[capStep].pos;
   const v = $('#camVideo');
-  if (!stream && !loadedImage) { const ok = await startCamera(); if (!ok && !loadedImage) { $('#fileInput').click(); return; } }
+  if (!stream && !loadedImage) { const ok = await startCamera(); if (ok) { $('#camHint').classList.add('hidden'); $('#camImg').classList.add('hidden'); $('#camVideo').classList.remove('hidden'); } else if (!loadedImage) { $('#fileInput').click(); return; } }
   if (stream && v.videoWidth) captures[pos] = captureFrom(v, v.videoWidth, v.videoHeight);
   else if (loadedImage) captures[pos] = captureFrom(loadedImage, loadedImage.naturalWidth, loadedImage.naturalHeight);
   else return;
@@ -1003,12 +1018,8 @@ $('#btnFile').addEventListener('click', () => $('#fileInput').click());
 $('#fileInput').addEventListener('change', (e) => {
   const f = e.target.files[0]; if (!f) return;
   const img = new Image();
-  img.onload = () => { loadedImage = img; const ci = $('#camImg'); ci.src = img.src; ci.classList.remove('hidden'); $('#camVideo').classList.add('hidden'); };
+  img.onload = () => { loadedImage = img; const ci = $('#camImg'); ci.src = img.src; ci.classList.remove('hidden'); $('#camVideo').classList.add('hidden'); $('#camHint').classList.add('hidden'); };
   img.src = URL.createObjectURL(f);
-});
-$('#tabbar').addEventListener('click', (e) => {
-  const b = e.target.closest('button[data-tab]');
-  if (b && b.dataset.tab === 'photo') startCamera().then(ok => { if (ok) { $('#camImg').classList.add('hidden'); $('#camVideo').classList.remove('hidden'); } });
 });
 /* ---- image matching ---- */
 const faceImages = {};
