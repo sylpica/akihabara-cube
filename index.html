@@ -278,6 +278,7 @@
         <li>明るく、光が均一な場所で撮る。面に影や照明の反射が入らないようにしてください。</li>
         <li>黄色い枠にキューブの面をぴったり合わせ、タイルの境目の線を枠の線に重ねてください。</li>
         <li>真っ正面から撮る。斜めになると読み取りにくくなります。</li>
+        <li>ピントが合わないときは、少し（20cmほど）離して枠に合わせ直してください。近すぎるとピントが合いません。それでも合わない場合は、iPhoneのカメラアプリで撮って「画像ファイルから選ぶ」のが確実です。</li>
         <li>各ステップで指定された「写真の上」の向きを守ってください（上下が逆に写っても自動で直しますが、合っている方が確実です）。</li>
         <li>手ブレしやすいので、キューブを机に置くか、両手でしっかり持って撮ってください。</li>
         <li>結果で「要確認」になったマスは、実物と見比べて「手で直す」で直してください。</li>
@@ -297,7 +298,7 @@
       <h3>このパズルの特徴</h3>
       <p>普通のルービックキューブと違い、面の中心にも絵（時計やメイドさん、ビルなど）があり、<b>中心の絵の向き</b>までそろえないと完成になりません。このアプリの解法は、最後に中心の向きだけを直す手順（位置は一切くずれません）を検証付きで付けます。</p>
       <h3>持ち方の基準</h3>
-      <p>このアプリでは <b>「秋葉原駅前」を正面、「末広町」を上面</b> に持った状態を基準にしています。面の位置はこの持ち方で「上＝末広町、下＝UDX・ダイビル、左＝神田明神下、右＝神田川、背面＝ヨドバシ・書泉」です。</p>
+      <p>このアプリでは <b>「秋葉原駅前」を正面（絵が正位置になる向き）、「UDX・ダイビル」を上面</b> に持った状態を基準にしています。面の位置はこの持ち方で「上＝UDX・ダイビル、下＝末広町、左＝神田川、右＝神田明神下、背面＝ヨドバシ・書泉」です。</p>
       <h3>解き方の流れ</h3>
       <ol>
         <li><b>面を見分ける</b>：「面の見分け方」で中心の絵とランドマークを確認します。まず6つの中心が正しい面に来ているか（＝対面関係が正しいか）を見ます。</li>
@@ -338,7 +339,7 @@
 const $ = (s, el) => (el || document).querySelector(s);
 const $$ = (s, el) => [...(el || document).querySelectorAll(s)];
 const POSNAMES = { U: '上', D: '下', F: '前', B: '後ろ', L: '左', R: '右' };
-const POSFACE_LABEL = { U: '上（末広町）', D: '下（UDX・ダイビル）', F: '前（秋葉原駅前）', B: '後ろ（ヨドバシ・書泉）', L: '左（神田明神下）', R: '右（神田川）' };
+const POSFACE_LABEL = { U: '上（UDX・ダイビル）', D: '下（末広町）', F: '前（秋葉原駅前）', B: '後ろ（ヨドバシ・書泉）', L: '左（神田川）', R: '右（神田明神下）' };
 const FACENAME = { A: '秋葉原駅前', B: '神田明神下', C: 'ヨドバシ・書泉', D: '神田川', E: 'UDX・ダイビル', F: '末広町' };
 function moveLabel(m) { return POSNAMES[m.face] + (m.power === 2 ? '2' : m.power === 3 ? "'" : ''); }
 const TILE_ZOOM = 1.04; // sample the centre of each face photo; the outer ~4% is the table the cube was photographed on
@@ -1090,12 +1091,12 @@ $('#scene').addEventListener('pointerup', (e) => {
 /* ================= PHOTO ================= */
 const photoReview = makeReview($('[data-net="photo"]'), { allowClear: true, photo: true });
 const CAP_STEPS = [
-  { pos: 'F', title: '1/6 正面（中心：時計の絵）', desc: '面は「中心タイルの絵」で見分けます。シャッフルされた状態では周りのタイルはバラバラですが、中心タイルは面ごとに決まっていて動きません。中心が「モモーイ時計（時計の絵）」の面を正面にしてください（そのとき上には「ハードオフ」の面が来ます）。黄色い枠に面をぴったり合わせ、真っ正面から撮ってください。' },
-  { pos: 'R', title: '2/6 右面（中心：神田川）', desc: '上の面を上にしたまま、キューブを左へ90°回します。中心が「斜めに流れる神田川」の面が正面に来るので、そのまま撮ります。' },
-  { pos: 'B', title: '3/6 背面（中心：書泉ブックタワー）', desc: 'そのまま180°回して、中心が「書泉ブックタワー（本のアイコン）」の面を正面に向けます（上はそのまま）。' },
-  { pos: 'L', title: '4/6 左面（中心：メイド）', desc: 'さらに90°回して、中心が「あっとほぉーむカフェのメイド」の面を正面に向けます（上はそのまま）。' },
-  { pos: 'U', title: '5/6 上面（中心：ハードオフ）', desc: '中心が「ハードオフ（黄色いジャンク通り）」の面を撮ります。背面（中心：書泉ブックタワー）側が写真の「上」になるように、その面をこちらへ向けてください。' },
-  { pos: 'D', title: '6/6 底面（中心：秋葉原UDX）', desc: '最後に、中心が「秋葉原UDX（緑のビル）」の面（底面）を撮ります。キューブを奥へ倒すように裏返してその面をこちらへ向けます（正面＝中心が時計の面が、写真の「上」になる向きです）。絵柄の中心の向きまで正確に読むため、底面も直接撮ります。' },
+  { pos: 'F', title: '1/6 正面（中心：モモーイ時計）', desc: '面は「中心タイル」で見分けます。シャッフルされた状態では周りのタイルはバラバラですが、中心タイルは面ごとに決まっていて動きません。中心に「モモーイ時計」の文字がある面を、絵が正位置（「AKIHABARA」の文字が下）になる向きで正面にしてください（そのとき上には「秋葉原UDX」の面が来ます）。黄色い枠に面をぴったり合わせ、真っ正面から撮ってください。' },
+  { pos: 'R', title: '2/6 右面（中心：あっとほぉーむカフェ）', desc: '上の面を上にしたまま、キューブを左へ90°回します。中心に「あっとほぉーむカフェ」の文字がある面が正面に来るので、そのまま撮ります。' },
+  { pos: 'B', title: '3/6 背面（中心：ヨドバシカメラ）', desc: 'そのまま180°回して、中心に「ヨドバシカメラ マルチメディアAkiba」の文字がある面を正面に向けます（上はそのまま）。' },
+  { pos: 'L', title: '4/6 左面（中心：神田川）', desc: 'さらに90°回して、中心を斜めに神田川が流れる面を正面に向けます（上はそのまま）。' },
+  { pos: 'U', title: '5/6 上面（中心：秋葉原UDX）', desc: '中心に「秋葉原UDX」の文字と緑のビルがある面を撮ります。背面（中心：ヨドバシカメラ）側が写真の「上」になるように、その面をこちらへ向けてください。' },
+  { pos: 'D', title: '6/6 底面（中心：ハードオフ）', desc: '最後に、中心に「ハードオフ」の文字がある面（底面）を撮ります。キューブを奥へ倒すように裏返してその面をこちらへ向けます（正面＝中心がモモーイ時計の面が、写真の「上」になる向きです）。絵柄の中心の向きまで正確に読むため、底面も直接撮ります。' },
 ];
 const captures = {}; // pos -> canvas 300x300
 let capStep = 0;
@@ -1103,8 +1104,20 @@ let stream = null, loadedImage = null;
 async function startCamera() {
   if (stream) return true;
   try {
-    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1920 } },
+      audio: false,
+    });
     $('#camVideo').srcObject = stream;
+    // ask for continuous autofocus where the platform supports it (recent iOS
+    // Safari honours focusMode; elsewhere this is a no-op)
+    try {
+      const track = stream.getVideoTracks()[0];
+      const caps = track.getCapabilities ? track.getCapabilities() : {};
+      if (caps.focusMode && caps.focusMode.includes('continuous')) {
+        await track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] });
+      }
+    } catch (e) { /* focus stays at the platform default */ }
     return true;
   } catch (e) { return false; }
 }

@@ -1,33 +1,37 @@
 'use strict';
 /* Akihabara Cube - geometric sticker model (shared: browser app + Node tests)
-   Frame (reference holding H0): A front, F top.
+   Frame (reference holding H1): A front (artwork upright), E top.
+   (Changed 2026-11-14 from H0 "A front, F top" -- in H0 the A artwork was
+   upside down, which contradicted the natural holding; the user's photo of
+   the real cube (A upright, B on its right) matches H1. H1 = H0 rotated
+   180 degrees about the front axis: U<->D and R<->L home faces swap.)
    Axes: x=right, y=up, z=front.
    Position faces (solver letters): U,D,F,B,L,R.
    Display faces (map areas): A,B,C,D,E,F.
-   Home assignment: A->F, B->L, C->B, D->R, E->D, F->U.
-   Image-up vectors in H0 frame (derived from photo corner analysis, see NOTES.md):
-     A:(0,-1,0) C:(0,1,0) F:(0,0,1) E:(0,0,1) B:(0,0,1) D:(0,0,1)
+   Home assignment: A->F, B->R, C->B, D->L, E->U, F->D.
+   Image-up vectors in H1 frame (H0 vectors rotated 180 deg about z):
+     A:(0,1,0) C:(0,-1,0) F:(0,0,1) E:(0,0,1) B:(0,0,1) D:(0,0,1)
 */
 const POS_NORMAL = {
   U: [0, 1, 0], D: [0, -1, 0], F: [0, 0, 1], B: [0, 0, -1], L: [-1, 0, 0], R: [1, 0, 0],
 };
-const FACE_HOME_POS = { A: 'F', B: 'L', C: 'B', D: 'R', E: 'D', F: 'U' };
-const POS_HOME_FACE = { F: 'A', L: 'B', B: 'C', R: 'D', D: 'E', U: 'F' };
+const FACE_HOME_POS = { A: 'F', B: 'R', C: 'B', D: 'L', E: 'U', F: 'D' };
+const POS_HOME_FACE = { F: 'A', R: 'B', B: 'C', L: 'D', U: 'E', D: 'F' };
 const FACE_IMAGE_UP = {
-  A: [0, -1, 0], B: [0, 0, 1], C: [0, 1, 0], D: [0, 0, 1], E: [0, 0, 1], F: [0, 0, 1],
+  A: [0, 1, 0], B: [0, 0, 1], C: [0, -1, 0], D: [0, 0, 1], E: [0, 0, 1], F: [0, 0, 1],
 };
 const FACE_INFO = {
-  A: { name: '秋葉原駅前', center: 'モモーイ時計（時計の絵）',
+  A: { name: '秋葉原駅前', center: '「モモーイ時計」の文字',
        marks: ['秋葉原駅', 'モモーイ時計', '秋葉原ラジオ会館', '秋葉原ラジオセンター', '中央通り', '万世橋警察署', 'ワシントンホテル', 'ニュー秋葉原センター', '万世橋', 'AKIHABARA'] },
-  B: { name: '神田明神下', center: 'あっとほぉーむカフェのメイド',
+  B: { name: '神田明神下', center: '「あっとほぉーむカフェ」の文字',
        marks: ['あっとほぉーむカフェ 秋葉原本店', 'AKIBAカルチャーズZONE', '千石電商', 'スーパーポテト', 'ラホール', '九州じゃんがら 秋葉原本店', 'ドスパラ秋葉原本店', 'ジャンク通り', '昌平通り', '神田明神下', '明神下 神田川本店'] },
-  C: { name: 'ヨドバシ・書泉', center: '書泉ブックタワー（本のアイコン）',
+  C: { name: 'ヨドバシ・書泉', center: '「ヨドバシカメラ マルチメディアAkiba」の文字',
        marks: ['ヨドバシカメラ マルチメディアAkiba', '書泉ブックタワー', '秋葉公園', '昭和通り', 'チンタジャワカフェ', '東口交通広場', 'TX01'] },
   D: { name: '神田川', center: '斜めに流れる神田川',
        marks: ['神田川', '神田郵便局', 'かんだやぶそば', 'マーチエキュート 万世橋', '万世橋', '昌平橋', '計測器ランド', '国道17号', '東京ラジオデパート', '© OpenStreetMap contributors'] },
   E: { name: 'UDX・ダイビル', center: '秋葉原UDX（緑のビル）',
        marks: ['秋葉原UDX', '秋葉原ダイビル', 'ビックカメラAKIBA', 'アニメイト秋葉原', 'ドン・キホーテ秋葉原店', 'SEEKBASE', '神田消防署', '中央通り'] },
-  F: { name: '末広町', center: 'ハードオフ（黄色いジャンク通り）',
+  F: { name: '末広町', center: '「ハードオフ」の文字とゲームコントローラーの絵',
        marks: ['末広町駅 G14', 'ハードオフ', '秋葉原ガチャポン会館', 'あきばお〜', 'U&J Macs', '過橋米線', '蔵前通り', '中央通り', 'ジャンク通り', '芳林公園', 'スターケバブ', '牛丼サンボ', '駿河屋 アニメ・ホビー館', 'e☆イヤホン'] },
 };
 // Neighbours of each display face in its upright photo orientation: [top, right, bottom, left]
