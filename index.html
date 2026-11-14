@@ -15,7 +15,7 @@
   .tabs { display: flex; gap: 4px; padding: 5px 8px 0 52px; position: sticky; top: 0; background: #14181f; z-index: 30; overflow-x: auto; }
   .tabs button { flex: 1 1 0; min-width: 0; padding: 7px 1px; font-size: 11.5px; border: 1px solid #39445a; background: #1d2432; color: #cfd9e6; border-radius: 10px 10px 0 0; cursor: pointer; white-space: nowrap; }
   .tabs button.active { background: #2b6cb0; border-color: #2b6cb0; color: #fff; font-weight: 700; }
-  main { padding: 6px 8px 4px; max-width: 600px; margin: 0 auto; }
+  main { padding: 4px 8px 1px; max-width: 600px; margin: 0 auto; }
   section.tab { display: none; }
   section.tab.active { display: block; }
   .modebar { display: flex; gap: 6px; justify-content: center; margin: 0 0 2px; }
@@ -25,8 +25,7 @@
   /* ---- 3D scene ---- */
   #stage { display: none; }
   #stage.on { display: block; }
-  #scene { width: min(96vw, 38vh); height: min(96vw, 38vh); margin: 2px auto; perspective: 1800px; touch-action: none; position: relative; }
-  body[data-mode="solve"] #scene { width: min(92vw, 33vh); height: min(92vw, 33vh); }
+  #scene { width: min(96vw, 40vh); height: min(96vw, 40vh); margin: 2px auto; perspective: 1800px; touch-action: none; position: relative; }
   #moveToast { position: absolute; left: 50%; top: 6px; transform: translateX(-50%); background: rgba(18,24,36,.9); border: 1.5px solid #63b3ed; color: #fff; font-size: 19px; font-weight: 800; padding: 5px 18px; border-radius: 999px; opacity: 0; transition: opacity .18s; pointer-events: none; z-index: 6; white-space: nowrap; }
   #moveToast.show { opacity: 1; }
   #cubeWrap { width: 100%; height: 100%; position: absolute; transform-style: preserve-3d; }
@@ -35,7 +34,7 @@
   /* seam frame above the sprite image (the sticker's own inset shadow is
      painted under the <img>, so the black grid of the real cube was lost) */
   .sticker::after { content: ""; position: absolute; inset: 0; border-radius: 7px; box-shadow: inset 0 0 0 2px rgba(8,8,12,.92), inset 0 0 0 3px rgba(255,255,255,.05); pointer-events: none; }
-  .viewbtns, .btnrow { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin: 4px 0; }
+  .viewbtns, .btnrow { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin: 3px 0; }
   .viewbtns button.btn { padding: 5px 9px; font-size: 12px; min-height: 30px; }
   button.btn.small { min-height: 34px; font-size: 12.5px; padding: 6px 10px; }
   button.btn { padding: 8px 11px; font-size: 13px; border-radius: 9px; border: 1px solid #39445a; background: #232c3e; color: #eef1f5; cursor: pointer; min-height: 38px; }
@@ -43,10 +42,10 @@
   button.btn.primary { background: #2b6cb0; border-color: #2b6cb0; font-weight: 700; }
   button.btn.warn { background: #744210; border-color: #975a16; }
   button.btn:disabled { opacity: .45; }
-  .status { text-align: center; font-size: 12.5px; color: #a8e063; min-height: 17px; margin: 2px 0; }
+  .status { text-align: center; font-size: 12.5px; color: #a8e063; min-height: 17px; margin: 1px 0; }
   .substatus { text-align: center; font-size: 12px; color: #9fb0c3; min-height: 14px; margin: 1px 0; }
   /* move pad */
-  .pad { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin: 6px 0; }
+  .pad { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin: 4px 0; }
   .padgroup { background: #1a2130; border: 1px solid #2c3648; border-radius: 10px; padding: 5px; }
   .padgroup .lab { font-size: 11.5px; color: #c8d4e4; text-align: center; margin-bottom: 4px; white-space: nowrap; }
   .padgroup .row { display: flex; gap: 5px; }
@@ -54,7 +53,7 @@
   /* solution */
   #solNow { text-align: center; font-size: 23px; font-weight: 800; margin: 2px 0; min-height: 31px; }
   #solNow .solphase { display: block; font-size: 11.5px; font-weight: 600; color: #ffd479; letter-spacing: .06em; }
-  .sol-scroll { position: relative; max-height: 17vh; overflow-y: auto; border-top: 1px solid #2c3648; border-bottom: 1px solid #2c3648; padding: 2px 2px 6px; margin-top: 4px; -webkit-overflow-scrolling: touch; }
+  .sol-scroll { position: relative; max-height: 14vh; overflow-y: auto; border-top: 1px solid #2c3648; border-bottom: 1px solid #2c3648; padding: 2px 2px 6px; margin-top: 4px; -webkit-overflow-scrolling: touch; }
   .solgroup { font-size: 13px; font-weight: 700; margin: 10px 0 4px; color: #ffd479; }
   .chips { display: flex; flex-wrap: wrap; gap: 4px; }
   .chip { padding: 5px 8px; font-size: 13px; border-radius: 7px; background: #232c3e; border: 1px solid #39445a; cursor: pointer; min-width: 40px; text-align: center; }
@@ -125,13 +124,18 @@
   .note { font-size: 12px; color: #9fb0c3; line-height: 1.6; margin-top: 18px; border-top: 1px solid #2c3648; padding-top: 10px; }
   .hidden { display: none !important; }
   @media (max-height: 700px) {
-    #scene { width: min(96vw, 32vh); height: min(96vw, 32vh); }
+    #scene { width: min(96vw, 34vh); height: min(96vw, 34vh); }
     main { padding-bottom: 0; }
     .padgroup button { min-height: 34px; }
     .status { min-height: 15px; }
     .viewbtns { margin: 2px 0; }
-    body[data-mode="solve"] #scene { width: min(92vw, 30vh); height: min(92vw, 30vh); }
-    .sol-scroll { max-height: 15vh; }
+    .sol-scroll { max-height: 13vh; }
+    .solnow { padding: 5px 10px; }
+    #pbProgress { margin: 3px 0; }
+    .modebar { margin: 3px 0 1px; }
+    .pad { margin-top: 3px; gap: 4px; }
+    .viewbtns, .btnrow { margin: 2px 0; }
+    .padgroup button { min-height: 35px; }
     .padgroup button { min-height: 36px; }
     .viewbtns button.btn { min-height: 30px; }
     .modebtn { min-height: 29px; }
