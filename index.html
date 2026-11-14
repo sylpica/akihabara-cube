@@ -256,6 +256,7 @@
     <div class="thumbs" id="capThumbs"></div>
     <div class="btnrow">
       <button class="btn primary" id="btnAnalyse" disabled>読み取り結果を確認する</button>
+      <button class="btn" id="btnCapReset">🗑 写真を全部リセット</button>
     </div>
     <div id="photoReview" class="hidden">
       <p class="stepdesc">自動で読み取った結果です。「要確認」のマスや、写真が上手く反映されていないマスは、「手で直す」ボタン（またはマスをタップ）から、全ステッカーの中から正しいものを選び直せます。中心のマスは、タップして候補選択と回転（↻）ができます。</p>
@@ -1089,12 +1090,12 @@ $('#scene').addEventListener('pointerup', (e) => {
 /* ================= PHOTO ================= */
 const photoReview = makeReview($('[data-net="photo"]'), { allowClear: true, photo: true });
 const CAP_STEPS = [
-  { pos: 'F', title: '1/6 正面：秋葉原駅前', desc: '基本の持ち方（秋葉原駅前が正面・末広町が上面）のまま、正面を撮ります。黄色い枠に面をぴったり合わせ、真っ正面から撮ってください。' },
-  { pos: 'R', title: '2/6 右面：神田川', desc: '上面（末広町）を上にしたまま、キューブを左へ90°回して、右面（神田川）を正面に向けます。そのまま撮ります。' },
-  { pos: 'B', title: '3/6 背面：ヨドバシ・書泉', desc: 'そのまま180°回して、背面（ヨドバシ・書泉）を正面に向けます（上面は末広町のまま）。' },
-  { pos: 'L', title: '4/6 左面：神田明神下', desc: 'さらに90°回して、左面（神田明神下）を正面に向けます（上面は末広町のまま）。' },
-  { pos: 'U', title: '5/6 上面：末広町', desc: '上面（末広町）を撮ります。背面（ヨドバシ）側が写真の「上」になるように、上面をこちらへ向けてください。' },
-  { pos: 'D', title: '6/6 底面：UDX・ダイビル', desc: '最後に底面（UDX・ダイビル）を撮ります。キューブを奥へ倒すように裏返して底面をこちらへ向けます（秋葉原駅前の面が写真の「上」になる向きです）。絵柄の中心の向きまで正確に読むため、底面も直接撮ります。' },
+  { pos: 'F', title: '1/6 正面（中心：時計の絵）', desc: '面は「中心タイルの絵」で見分けます。シャッフルされた状態では周りのタイルはバラバラですが、中心タイルは面ごとに決まっていて動きません。中心が「モモーイ時計（時計の絵）」の面を正面にしてください（そのとき上には「ハードオフ」の面が来ます）。黄色い枠に面をぴったり合わせ、真っ正面から撮ってください。' },
+  { pos: 'R', title: '2/6 右面（中心：神田川）', desc: '上の面を上にしたまま、キューブを左へ90°回します。中心が「斜めに流れる神田川」の面が正面に来るので、そのまま撮ります。' },
+  { pos: 'B', title: '3/6 背面（中心：書泉ブックタワー）', desc: 'そのまま180°回して、中心が「書泉ブックタワー（本のアイコン）」の面を正面に向けます（上はそのまま）。' },
+  { pos: 'L', title: '4/6 左面（中心：メイド）', desc: 'さらに90°回して、中心が「あっとほぉーむカフェのメイド」の面を正面に向けます（上はそのまま）。' },
+  { pos: 'U', title: '5/6 上面（中心：ハードオフ）', desc: '中心が「ハードオフ（黄色いジャンク通り）」の面を撮ります。背面（中心：書泉ブックタワー）側が写真の「上」になるように、その面をこちらへ向けてください。' },
+  { pos: 'D', title: '6/6 底面（中心：秋葉原UDX）', desc: '最後に、中心が「秋葉原UDX（緑のビル）」の面（底面）を撮ります。キューブを奥へ倒すように裏返してその面をこちらへ向けます（正面＝中心が時計の面が、写真の「上」になる向きです）。絵柄の中心の向きまで正確に読むため、底面も直接撮ります。' },
 ];
 const captures = {}; // pos -> canvas 300x300
 let capStep = 0;
@@ -1164,6 +1165,14 @@ $('#btnShot').addEventListener('click', async () => {
   updateCapUI();
 });
 $('#btnFile').addEventListener('click', () => $('#fileInput').click());
+$('#btnCapReset').addEventListener('click', () => {
+  if (!Object.keys(captures).length && $('#photoReview').classList.contains('hidden')) return;
+  if (!confirm('撮影した写真を全部消して、最初から撮り直しますか？')) return;
+  for (const k of Object.keys(captures)) delete captures[k];
+  capStep = 0; capNote = ''; capPicked = false;
+  $('#photoReview').classList.add('hidden');
+  updateCapUI();
+});
 $('#fileInput').addEventListener('change', (e) => {
   const f = e.target.files[0]; if (!f) return;
   const img = new Image();
