@@ -28,6 +28,10 @@
   #scene { width: min(96vw, 40vh); height: min(96vw, 40vh); margin: 2px auto; perspective: 1800px; touch-action: none; position: relative; }
   #moveToast { position: absolute; left: 50%; top: 6px; transform: translateX(-50%); background: rgba(18,24,36,.9); border: 1.5px solid #63b3ed; color: #fff; font-size: 19px; font-weight: 800; padding: 5px 18px; border-radius: 999px; opacity: 0; transition: opacity .18s; pointer-events: none; z-index: 6; white-space: nowrap; }
   #moveToast.show { opacity: 1; }
+  #anaBar { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); background: rgba(18,24,36,.95); border: 1.5px solid #63b3ed; color: #fff; font-size: 15px; font-weight: 700; padding: 9px 18px; border-radius: 999px; z-index: 90; display: none; white-space: nowrap; max-width: 94vw; box-shadow: 0 4px 16px rgba(0,0,0,.4); }
+  #anaBar.show { display: block; }
+  #anaBar.done { border-color: #68d391; cursor: pointer; }
+  #anaBar.pulse { animation: abpulse 1.6s ease-in-out infinite; }
   #cubeWrap { width: 100%; height: 100%; position: absolute; transform-style: preserve-3d; }
   #cube, .layer3d { position: absolute; inset: 0; transform-style: preserve-3d; }
   .sticker { position: absolute; left: 50%; top: 50%; border-radius: 7px; overflow: hidden; box-shadow: inset 0 0 0 2px rgba(10,10,14,.85); background-color: #20242c; background-repeat: no-repeat; }
@@ -247,7 +251,7 @@
       <div id="camBox">
         <video id="camVideo" class="hidden" playsinline muted autoplay></video>
         <img id="camImg" class="hidden" alt="撮影した面">
-        <div class="camhint" id="camHint">「📷 撮影する」を押した時だけカメラが起動します（その時に許可ダイアログが出ます）。<br>カメラを使わず「画像ファイルから選ぶ」こともできます。</div>
+        <div class="camhint" id="camHint">「📷 カメラを起動する」を押した時だけカメラが起動します（その時に許可ダイアログが出ます）。<br>カメラを使わず「画像ファイルから選ぶ」こともできます。</div>
         <div class="guide"></div>
       </div>
     </div>
@@ -282,7 +286,7 @@
         <li>黄色い枠にキューブの面をぴったり合わせ、タイルの境目の線を枠の線に重ねてください。</li>
         <li>真っ正面から撮る。斜めになると読み取りにくくなります。</li>
         <li>ピントが合わないときは、少し（20cmほど）離して枠に合わせ直してください。近すぎるとピントが合いません。それでも合わない場合は、お使いのスマホのカメラアプリで撮って「画像ファイルから選ぶ」のが確実です。</li>
-        <li>読み取りには時間がかかることがあります（枠から大きく外れた写真ほど長くかかります）。読み取り中は画面を開いたままにしてください。ほかのアプリに切り替えると読み取りは一時停止しますが、写真と進み具合は保存されるので、戻ってから続きで大丈夫です。</li>
+        <li>読み取りには時間がかかることがあります（枠から大きく外れた写真ほど長くかかります）。読み取り中は、このアプリを開いたままにしてください。「あそぶ」タブで遊んで待つこともできます（進み具合は画面の下に出ます）。ほかのアプリに切り替えると読み取りは一時停止しますが、写真と進み具合は保存されるので、戻ってから続きで大丈夫です。</li>
         <li>向きは「中心の文字がまっすぐ読める」ことが目安です。多少回って写っても、少し位置がずれても、読み取りのときに自動で補正します（枠いっぱいに大きく写すのが一番確実です）。</li>
         <li>手ブレしやすいので、キューブを机に置くか、両手でしっかり持って撮ってください。</li>
         <li>結果で「要確認」になったマスは、実物と見比べて「手で直す」で直してください。</li>
@@ -305,7 +309,7 @@
       <p>このアプリでは <b>中心が「モモーイ時計」の面を正面（絵が正位置になる向き）、中心が「秋葉原UDX」の面を上面</b> に持った状態を基準にしています。面の位置はこの持ち方で「上＝秋葉原UDX、下＝ハードオフ、左＝神田川、右＝あっとほぉーむカフェ、背面＝昭和通り」です（面の名前はすべて中心タイルの絵柄です）。</p>
       <h3>解き方の流れ</h3>
       <ol>
-        <li><b>面を見分ける</b>：「面の見分け方」で中心の絵を確認します（周りのタイルはシャッフルで移るので目印になりません）。まず6つの中心が正しい面に来ているか（＝対面関係が正しいか）を見ます。</li>
+        <li><b>面を見分ける</b>：「見分け方」タブで中心の絵を確認します（周りのタイルはシャッフルで移るので目印になりません）。まず6つの中心が正しい面に来ているか（＝対面関係が正しいか）を見ます。</li>
         <li><b>ふつうの3×3として解く</b>：色の代わりに「絵のつながり」を手がかりに、角と辺の位置をそろえます。このアプリの「この状態を解く」が手順を出します。</li>
         <li><b>中心の向きを直す</b>：位置がそろったあと、残った中心の向きのずれを専用手順で直します（アプリが自動で手順の続きに付けます）。</li>
       </ol>
@@ -319,6 +323,7 @@
     <p class="note">このソルバーは Kociemba の2フェーズ法でピースの位置を解き、中心の向きは「位置が一切くずれないこと」を計算機で検証した手順だけを使って直しています。表示される手順は、適用すると必ず完成形（中心の向きを含む）になることをアプリ内でもう一度シミュレーションで確認してから表示しています。</p>
   </section>
 </main>
+<div id="anaBar"></div>
 
 <!-- picker sheet -->
 <div id="sheet">
@@ -381,6 +386,7 @@ $('#tabbar').addEventListener('click', (e) => {
   window.scrollTo(0, 0);
   if (mode !== 'photo') stopCamera();
   if (mode === 'photo' && typeof updateCapUI === 'function') updateCapUI();
+  if (typeof updateAnaBar === 'function') updateAnaBar();
 });
 function gotoTab(name) { $(`#tabbar button[data-tab="${name}"]`).click(); }
 /* ---- back button: close sheet -> previous tab -> browser back ---- */
@@ -1248,7 +1254,7 @@ async function startCameraInner() {
       if (stream !== myStream || !frameIsBlack(v)) return;
       v.classList.add('hidden');
       const h = $('#camHint');
-      h.innerHTML = 'プレビューが映っていません（真っ黒なまま）。この状態では撮影できません。一度ほかのタブに切り替えてから戻るか、下の「📄 画像ファイルから選ぶ」をお試しください。';
+      h.innerHTML = 'プレビューが映っていません（真っ黒なまま）。この状態では撮影できません。一度ほかのタブに切り替えてから戻るか、下の「画像ファイルから選ぶ」をお試しください。';
       h.classList.remove('hidden');
     }, 700);
   }, 900);
@@ -1277,7 +1283,7 @@ function updateCapUI() {
     // 43/54), so every step's guidance says it explicitly.
     $('#capDesc').textContent = (capNote ? capNote + ' ' : '') + step.desc + ' 面が黄色い枠いっぱいに大きく写るように近づけて撮ってください（小さく写ると読み取り精度が大きく落ちます）。';
   }
-  $('#btnAnalyse').disabled = done < total;
+  $('#btnAnalyse').disabled = analysing || done < total;
   // The button's job differs by state: with no camera running and no file
   // image loaded, the press starts the camera (and asks permission); only
   // with a live preview does it take the photo.
@@ -1364,6 +1370,7 @@ $('#btnCapReset').addEventListener('click', () => {
   for (const k of Object.keys(captures)) { delete captures[k]; delete captureSrc[k]; }
   try { localStorage.removeItem(LS_CAP); localStorage.removeItem(LS_CELLS); } catch (e) {}
   capStep = 0; capNote = ''; capPicked = false;
+  anaFinished = false; if (typeof updateAnaBar === 'function') updateAnaBar();
   loadedImage = null;
   if (loadedURL) { URL.revokeObjectURL(loadedURL); loadedURL = null; }
   const ci = $('#camImg'); ci.classList.add('hidden'); ci.removeAttribute('src');
@@ -1724,6 +1731,28 @@ function gridSrcIdx(r, c, g) {
   return [c, 2 - r];
 }
 let analysing = false, wakeLock = null;
+/* Analysis progress pill (Round 6, user request 2026-11-16): while an
+   analysis runs -- or has finished but not yet been applied -- the user
+   may be on another tab (e.g. playing in あそぶ). Show a fixed pill on
+   every tab except the photo tab itself (where the button label already
+   carries the progress). Tapping the finished pill jumps to the result. */
+let anaDoneCount = 0, anaFinished = false;
+function updateAnaBar() {
+  const bar = $('#anaBar'); if (!bar) return;
+  const onPhoto = document.body.dataset.mode === 'photo';
+  if (analysing) {
+    bar.textContent = `📷 読み取り中…（${anaDoneCount}/6面ずみ）`;
+    bar.classList.toggle('show', !onPhoto);
+    bar.classList.remove('done'); bar.classList.add('pulse');
+  } else if (anaFinished) {
+    bar.textContent = '✓ 読み取りが終わりました。タップで結果を確認';
+    bar.classList.toggle('show', !onPhoto);
+    bar.classList.add('done'); bar.classList.remove('pulse');
+  } else {
+    bar.classList.remove('show', 'done', 'pulse');
+  }
+}
+$('#anaBar').addEventListener('click', () => { if (anaFinished && !analysing) gotoTab('photo'); });
 async function grabWakeLock() {
   try { if (navigator.wakeLock && !wakeLock) { wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => { wakeLock = null; }); } } catch (e) {}
 }
@@ -1732,6 +1761,7 @@ $('#btnAnalyse').addEventListener('click', async () => {
   btn.disabled = true; btn.textContent = '読み取り中…'; btn.classList.add('busy');
   $('#btnShot').disabled = true; $('#btnCapReset').disabled = true; // keep the capture set stable during analysis
   analysing = true;
+  anaDoneCount = 0; anaFinished = false; updateAnaBar();
   // let the label actually paint before any heavy work starts (user
   // report: the label sometimes never appeared because the synchronous
   // first-face search blocked the very first paint)
@@ -1745,6 +1775,7 @@ $('#btnAnalyse').addEventListener('click', async () => {
     if (lastPhotoNotes.length) { pn.style.display = 'block'; pn.textContent = lastPhotoNotes.join(' '); } else pn.style.display = 'none';
     $('#photoReview').classList.remove('hidden');
     $('#photoReview').scrollIntoView({ behavior: 'smooth' });
+    anaFinished = true; updateAnaBar();
   } catch (err) {
     alert('読み取りでエラーが起きました：' + err.message);
   } finally {
@@ -1752,6 +1783,7 @@ $('#btnAnalyse').addEventListener('click', async () => {
     if (wakeLock) { try { wakeLock.release(); } catch (e) {} wakeLock = null; }
     btn.disabled = false; btn.textContent = '読み取り結果を確認する'; btn.classList.remove('busy');
     $('#btnShot').disabled = false; $('#btnCapReset').disabled = false;
+    updateAnaBar();
   }
 });
 document.addEventListener('visibilitychange', () => {
@@ -1807,7 +1839,7 @@ async function analyseCaptures() {
   for (const step of CAP_STEPS) {
     // yield between faces so the progress label can paint; a fully
     // synchronous run would leave the page looking frozen for seconds
-    if (faceIdx > 0) { $('#btnAnalyse').textContent = `読み取り中…（${faceIdx}/6面ずみ）`; await new Promise(r => setTimeout(r, 10)); }
+    if (faceIdx > 0) { $('#btnAnalyse').textContent = `読み取り中…（${faceIdx}/6面ずみ）`; anaDoneCount = faceIdx; updateAnaBar(); await new Promise(r => setTimeout(r, 10)); }
     faceIdx++;
     if (faceIdx > 1) { const prev = CAP_STEPS[faceIdx - 2].pos; if (cellLists[prev]) saveCellsFace(analysisSig, prev, cellLists[prev]); }
     const pos = step.pos;
@@ -2122,7 +2154,7 @@ $('#btnManualFix').addEventListener('click', () => {
   openPicker(R, target.pos, target.r, target.c);
 });
 $('#btnPhotoCheck').addEventListener('click', () => photoReview.checkAndApply($('#photoErrors'), $('#photoOk'), null));
-$('#btnPhotoApply').addEventListener('click', (e) => photoReview.checkAndApply($('#photoErrors'), $('#photoOk'), e.currentTarget));
+$('#btnPhotoApply').addEventListener('click', (e) => { anaFinished = false; updateAnaBar(); photoReview.checkAndApply($('#photoErrors'), $('#photoOk'), e.currentTarget); });
 /* Restore checkpointed captures after a reload / page kill (round 3). */
 (async () => {
   try {
