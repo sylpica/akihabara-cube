@@ -1109,7 +1109,7 @@ const captures = {}; // pos -> canvas 300x300
    the captures and each finished face's candidate lists are checkpointed
    to localStorage; if the page is killed or reloaded, reopening restores
    the photos and the next analysis resumes from the unfinished faces. */
-const LS_CAP = 'akicube.captures.v1', LS_CELLS = 'akicube.cells.v2';
+const LS_CAP = 'akicube.captures.v1', LS_CELLS = 'akicube.cells.v5';
 const captureSrc = {}; // pos -> the exact dataURL string saved/restored
 function saveCaptures() {
   try {
@@ -1270,7 +1270,10 @@ function updateCapUI() {
     $('#capDesc').textContent = (capNote ? capNote + ' ' : '') + 'この面は撮影済みです。キューブのその面をカメラに向けて「📷 撮影する」を押すと撮り直せます。別の面はサムネイルで選んでください。';
   } else {
     $('#capTitle').textContent = step.title;
-    $('#capDesc').textContent = (capNote ? capNote + ' ' : '') + step.desc;
+    // Framing is the biggest user-side accuracy lever (measured
+    // 2026-11-15: frame-filling shots read 54/54, loosely framed
+    // 43/54), so every step's guidance says it explicitly.
+    $('#capDesc').textContent = (capNote ? capNote + ' ' : '') + step.desc + ' 面が黄色い枠いっぱいに大きく写るように近づけて撮ってください（小さく写ると読み取り精度が大きく落ちます）。';
   }
   $('#btnAnalyse').disabled = done < total;
   // The button's job differs by state: with no camera running and no file
@@ -1607,9 +1610,14 @@ async function estimateAlign(cap) {
      around the winner. */
   const SIX = [[0, 0], [0, 1], [0, 2], [2, 0], [2, 1], [2, 2]];
   const FOUR = [[0, 0], [0, 2], [2, 0], [2, 2]];
-  const ANGS = [-6, -3, 0, 3, 6];
-  const ZERO = 2; // index of angle 0
+  const ANGS = [-15, -12, -9, -6, -3, 0, 3, 6, 9, 12, 15];
+  const ZERO = 5; // index of angle 0
   const caps = ANGS.map(a => a === 0 ? cap : rotateCap(cap, a));
+  // Angle grid widened to +-15 (2026-11-15, Round 5): the +-6 grid read
+  // a +15-degree tilted photo set at 37/54; the +-15 grid reads it at
+  // 49/54 with tight/loose unchanged at 54/54 and tilt6/tilt6s at
+  // 108/108. (Face D stays 4/9 at +15 degrees on both grids -- a
+  // different, still-open cause.)
   // joint coarse pass: best score per angle. Offset grid widened to
   // +-36 (2026-11-15): at +-24 a 50px framing shift lost a whole state
   // (87/108, 1/2); at +-36 it reads 106/108, 2/2, with tilt6s/shift35/
@@ -1697,7 +1705,7 @@ async function estimateAlign(cap) {
   let deg = ANGS[best.ai];
   for (const dd of [-1.5, 1.5]) {
     const nd = deg + dd;
-    if (Math.abs(nd) > 7.5) continue;
+    if (Math.abs(nd) > 16.5) continue;
     const sc = await S(rotateCap(cap, nd), best.ox, best.oy, best.size);
     if (sc > best.sc) { best = { ...best, sc }; deg = nd; }
   }
@@ -1805,22 +1813,70 @@ async function analyseCaptures() {
     const cap = captures[pos];
     const al = await estimateAlign(cap);
     const capA = al.rot ? rotateCap(cap, al.rot) : cap;
+    // Score one cell at one alignment: tile key -> {…, rot, score}.
+    const scoreCellAt = (ox, oy, size, r, c) => {
+      const cellCv = cellCanvas(capA, ox, oy, size, r, c, 48);
+      const feats = [0, 1, 2, 3].map(k => featuresOf(rotateCanvas48(cellCv, k)));
+      const m = new Map();
+      for (const key of Object.keys(refTiles)) {
+        const t = refTiles[key];
+        let best = -1, bestK = 0;
+        for (let k = 0; k < 4; k++) {
+          const sc = scoreFeat({ hist: feats[0].hist, gray: feats[k].gray, hog: feats[k].hog }, t.feat);
+          if (sc > best) { best = sc; bestK = k; }
+        }
+        m.set(key, { home: t.home, hrow: t.hrow, hcol: t.hcol, rot: (4 - bestK) % 4, score: best });
+      }
+      return m;
+    };
     cellLists[pos] = [];
     for (let r = 0; r < 3; r++) {
       cellLists[pos][r] = [];
       for (let c = 0; c < 3; c++) {
-        const cellCv = cellCanvas(capA, al.ox, al.oy, al.size, r, c, 48);
-        const feats = [0, 1, 2, 3].map(k => featuresOf(rotateCanvas48(cellCv, k)));
-        const list = [];
-        for (const key of Object.keys(refTiles)) {
-          const t = refTiles[key];
-          let best = -1, bestK = 0;
-          for (let k = 0; k < 4; k++) {
-            const sc = scoreFeat({ hist: feats[0].hist, gray: feats[k].gray, hog: feats[k].hog }, t.feat);
-            if (sc > best) { best = sc; bestK = k; }
+        const merged = scoreCellAt(al.ox, al.oy, al.size, r, c);
+        const s0 = [...merged.values()].sort((a, b) => b.score - a.score);
+        // Multi-hypothesis merging for uncertain cells: under
+        // perspective, different cells are sampled best at slightly
+        // different alignments, so a single global alignment
+        // mis-samples some cells and the matcher confidently picks a
+        // neighbour tile. Re-score uncertain cells at perturbed
+        // alignments and keep each tile's best. Measured 2026-11-15 on
+        // the photos2 tight set: per-cell top-1 23/54 -> 33/54 (the
+        // hardest face 3/9 -> 8/9). Certain cells skip the extra work.
+        if (s0.length > 1 && (s0[0].score < 0.62 || (s0[0].score - s0[1].score) < 0.08)) {
+          const variants = [
+            { ox: al.ox + 12, oy: al.oy, size: al.size }, { ox: al.ox - 12, oy: al.oy, size: al.size },
+            { ox: al.ox, oy: al.oy + 12, size: al.size }, { ox: al.ox, oy: al.oy - 12, size: al.size },
+            { ox: al.ox - 6, oy: al.oy - 6, size: Math.min(306, al.size + 12) },
+            { ox: al.ox + 6, oy: al.oy + 6, size: Math.max(220, al.size - 12) },
+          ];
+          for (const v of variants) {
+            const m2 = scoreCellAt(v.ox, v.oy, v.size, r, c);
+            for (const [key, e2] of m2) { const e = merged.get(key); if (e2.score > e.score) merged.set(key, e2); }
           }
-          list.push({ home: t.home, hrow: t.hrow, hcol: t.hcol, rot: (4 - bestK) % 4, score: best });
+          await new Promise(yr => setTimeout(yr, 0));
         }
+        // Stage 2, for cells STILL uncertain after stage 1: merge over
+        // a wide sampling grid (offsets +-36 step 12, sizes -24/0/+24).
+        // The confusion analysis (2026-11-15) showed the remaining
+        // loose-frame errors are sampling-stage: the truth tile ranked
+        // 8-33 because no sampled position showed the cell's true
+        // content. The full grid lifts those truths (loose A2 per-cell
+        // top-1 4/9 -> 8/9 in the ceiling experiment); a reduced grid
+        // was measured much weaker, so the full grid it is. Certain
+        // cells never pay this cost.
+        const t2 = [...merged.values()].sort((a, b) => b.score - a.score);
+        if (t2.length > 1 && (t2[0].score < 0.66 || (t2[0].score - t2[1].score) < 0.05)) {
+          for (const ds of [-24, 0, 24]) {
+            const wsize = Math.max(220, Math.min(306, al.size + ds));
+            for (const dx of [-36, -24, -12, 0, 12, 24, 36]) for (const dy of [-36, -24, -12, 0, 12, 24, 36]) {
+              const m2 = scoreCellAt(al.ox + dx - ds / 2, al.oy + dy - ds / 2, wsize, r, c);
+              for (const [key, e2] of m2) { const e = merged.get(key); if (e2.score > e.score) merged.set(key, e2); }
+            }
+          }
+          await new Promise(yr => setTimeout(yr, 0));
+        }
+        const list = [...merged.values()];
         list.sort((a, b) => b.score - a.score);
         cellLists[pos][r][c] = list;
         R.cand[pos][r][c] = list;
