@@ -40,6 +40,8 @@
   button.btn { padding: 8px 11px; font-size: 13px; border-radius: 9px; border: 1px solid #39445a; background: #232c3e; color: #eef1f5; cursor: pointer; min-height: 38px; }
   button.btn:active { transform: scale(.97); }
   button.btn.primary { background: #2b6cb0; border-color: #2b6cb0; font-weight: 700; }
+  #btnAnalyse.busy { animation: abpulse 1.2s ease-in-out infinite; }
+  @keyframes abpulse { 50% { opacity: .5; } }
   button.btn.warn { background: #744210; border-color: #975a16; }
   button.btn:disabled { opacity: .45; }
   .status { text-align: center; font-size: 12.5px; color: #a8e063; min-height: 17px; margin: 1px 0; }
@@ -279,6 +281,7 @@
         <li>黄色い枠にキューブの面をぴったり合わせ、タイルの境目の線を枠の線に重ねてください。</li>
         <li>真っ正面から撮る。斜めになると読み取りにくくなります。</li>
         <li>ピントが合わないときは、少し（20cmほど）離して枠に合わせ直してください。近すぎるとピントが合いません。それでも合わない場合は、iPhoneのカメラアプリで撮って「画像ファイルから選ぶ」のが確実です。</li>
+        <li>読み取りには時間がかかることがあります（枠から大きく外れた写真ほど長くかかります）。読み取り中は画面を開いたままにしてください。ほかのアプリに切り替えると読み取りは一時停止しますが、写真と進み具合は保存されるので、戻ってから続きで大丈夫です。</li>
         <li>向きは「中心の文字がまっすぐ読める」ことが目安です。多少回って写っても、少し位置がずれても、読み取りのときに自動で補正します（枠いっぱいに大きく写すのが一番確実です）。</li>
         <li>手ブレしやすいので、キューブを机に置くか、両手でしっかり持って撮ってください。</li>
         <li>結果で「要確認」になったマスは、実物と見比べて「手で直す」で直してください。</li>
@@ -1101,6 +1104,42 @@ const CAP_STEPS = [
   { pos: 'D', title: '6/6 底面（中心：ハードオフ）', desc: '最後に、中心に「ハードオフ」の文字がある面（底面）を撮ります。キューブを裏返してその面をこちらへ向け、文字がまっすぐ読める向きで撮ってください。絵柄の中心の向きまで正確に読むため、底面も直接撮ります。' },
 ];
 const captures = {}; // pos -> canvas 300x300
+/* Persistence (2026-11-15 round 3): iOS freezes or kills backgrounded web
+   pages, so a long analysis cannot truly run in the background. Instead,
+   the captures and each finished face's candidate lists are checkpointed
+   to localStorage; if the page is killed or reloaded, reopening restores
+   the photos and the next analysis resumes from the unfinished faces. */
+const LS_CAP = 'akicube.captures.v1', LS_CELLS = 'akicube.cells.v1';
+const captureSrc = {}; // pos -> the exact dataURL string saved/restored
+function saveCaptures() {
+  try {
+    const o = {};
+    for (const k of Object.keys(captures)) if (captures[k]) { const d = captures[k].toDataURL('image/jpeg', 0.85); o[k] = d; captureSrc[k] = d; }
+    localStorage.setItem(LS_CAP, JSON.stringify(o));
+  } catch (e) {}
+}
+function capturesSig() {
+  // Signature MUST be built from the saved dataURL strings, not from a
+  // fresh encode of the live canvases: after a reload the canvases are
+  // JPEG-of-JPEG and a fresh encode differs, which would silently defeat
+  // the analysis checkpoint exactly in the page-killed case it exists for.
+  const ks = Object.keys(captures).filter(k => captures[k]).sort();
+  let h = ks.join(',');
+  for (const k of ks) { const d = captureSrc[k] || captures[k].toDataURL('image/jpeg', 0.6); h += ':' + d.length + ':' + d.charCodeAt(100) + ':' + d.charCodeAt(1000); }
+  return h;
+}
+function loadCells(sig) {
+  try { const o = JSON.parse(localStorage.getItem(LS_CELLS) || 'null'); return o && o.sig === sig ? (o.faces || {}) : {}; } catch (e) { return {}; }
+}
+function saveCellsFace(sig, pos, lists) {
+  try {
+    let o = null;
+    try { o = JSON.parse(localStorage.getItem(LS_CELLS) || 'null'); } catch (e) {}
+    if (!o || o.sig !== sig) o = { sig, faces: {} };
+    o.faces[pos] = lists;
+    localStorage.setItem(LS_CELLS, JSON.stringify(o));
+  } catch (e) {}
+}
 let capStep = 0;
 let stream = null, loadedImage = null;
 let loadedURL = null; // object URL backing loadedImage (revoked on replace/reset)
@@ -1304,6 +1343,7 @@ $('#btnShot').addEventListener('click', async () => {
     if (stream && v.videoWidth) captures[pos] = captureFrom(v, v.videoWidth, v.videoHeight);
     else if (loadedImage) captures[pos] = captureFrom(loadedImage, loadedImage.naturalWidth, loadedImage.naturalHeight);
     else return;
+    saveCaptures();
     capNote = wasRetake ? POSFACE_LABEL[pos].split('（')[0] + 'を撮り直しました。' : '';
     capPicked = false;
     // advance to next uncaptured
@@ -1316,7 +1356,8 @@ $('#btnFile').addEventListener('click', () => $('#fileInput').click());
 $('#btnCapReset').addEventListener('click', () => {
   if (!Object.keys(captures).length && !loadedImage && $('#photoReview').classList.contains('hidden')) return;
   if (!confirm('撮影した写真を全部消して、最初から撮り直しますか？')) return;
-  for (const k of Object.keys(captures)) delete captures[k];
+  for (const k of Object.keys(captures)) { delete captures[k]; delete captureSrc[k]; }
+  try { localStorage.removeItem(LS_CAP); localStorage.removeItem(LS_CELLS); } catch (e) {}
   capStep = 0; capNote = ''; capPicked = false;
   loadedImage = null;
   if (loadedURL) { URL.revokeObjectURL(loadedURL); loadedURL = null; }
@@ -1509,8 +1550,16 @@ function rotateCap(cap, deg) {
   ctx.save(); ctx.translate(150, 150); ctx.rotate(deg * Math.PI / 180); ctx.drawImage(cap, -150, -150); ctx.restore();
   return cv;
 }
-function estimateAlign(cap) {
-  const idSc = fullCellScore(cap, 0, 0, 300);
+async function estimateAlign(cap) {
+  // Chunked: yield to the event loop every few evaluations so the page
+  // never freezes during a long search (user report 2026-11-15: the
+  // fully synchronous search froze the app for tens of seconds, and a
+  // backgrounded page came back black/erroring). Yields also let iOS
+  // pause us cleanly in the background and resume on return.
+  let evals = 0;
+  const tick = async () => { if (++evals % 6 === 0) await new Promise(r => setTimeout(r, 0)); };
+  const S = async (cv, ox, oy, size, cells, fast) => { const v = fullCellScore(cv, ox, oy, size, cells, fast); await tick(); return v; };
+  const idSc = await S(cap, 0, 0, 300);
   // A well-framed capture scores high at the identity alignment; only pay
   // for the wide search when the framing is actually off.
   if (idSc >= 7.25) return { ox: 0, oy: 0, size: 300 };
@@ -1531,15 +1580,15 @@ function estimateAlign(cap) {
   const caps = ANGS.map(a => a === 0 ? cap : rotateCap(cap, a));
   // joint coarse pass: best score per angle
   const bestPerAngle = ANGS.map(() => -1);
-  ANGS.forEach((deg, ai) => {
+  for (let ai = 0; ai < ANGS.length; ai++) {
     for (const size of [300, 276, 252, 228]) {
       for (const dx of [-24, 0, 24]) for (const dy of [-24, 0, 24]) {
         const ox = (300 - size) / 2 + dx, oy = (300 - size) / 2 + dy;
-        const sc = fullCellScore(caps[ai], ox, oy, size, FOUR, true);
+        const sc = await S(caps[ai], ox, oy, size, FOUR, true);
         if (sc > bestPerAngle[ai]) bestPerAngle[ai] = sc;
       }
     }
-  });
+  }
   // The coarse vote cannot always separate neighbouring angles when a
   // shift is also present (measured: -3 beat the true -6 in the vote,
   // while the fine full score at truth was 7.41 vs 6.53), so the fine
@@ -1553,33 +1602,33 @@ function estimateAlign(cap) {
   if (!searchOrder.includes(ZERO)) searchOrder.push(ZERO);
   // fine shift/scale search on one canvas (the v4-proven grid), with a
   // size walk added to the refine so an off-grid seed size still lands.
-  const fineSearch = (cv) => {
-    const idCv = fullCellScore(cv, 0, 0, 300);
+  const fineSearch = async (cv) => {
+    const idCv = await S(cv, 0, 0, 300);
     const coarse = [];
     for (const size of [300, 288, 276, 264, 252, 240, 228]) {
       for (const dx of [-24, -12, 0, 12, 24]) for (const dy of [-24, -12, 0, 12, 24]) {
         const ox = (300 - size) / 2 + dx, oy = (300 - size) / 2 + dy;
-        coarse.push({ ox, oy, size, sc: fullCellScore(cv, ox, oy, size, FOUR, true) });
+        coarse.push({ ox, oy, size, sc: await S(cv, ox, oy, size, FOUR, true) });
       }
     }
     coarse.sort((a, b) => b.sc - a.sc);
-    const refine = (cand) => {
-      let cur = { ox: cand.ox, oy: cand.oy, size: cand.size, sc: fullCellScore(cv, cand.ox, cand.oy, cand.size, SIX, true) };
-      const walk = (step, rad) => {
+    const refine = async (cand) => {
+      let cur = { ox: cand.ox, oy: cand.oy, size: cand.size, sc: await S(cv, cand.ox, cand.oy, cand.size, SIX, true) };
+      const walk = async (step, rad) => {
         for (let dx = -rad; dx <= rad; dx += step) for (let dy = -rad; dy <= rad; dy += step) {
           if (!dx && !dy) continue;
-          const sc = fullCellScore(cv, cur.ox + dx, cur.oy + dy, cur.size, SIX, true);
+          const sc = await S(cv, cur.ox + dx, cur.oy + dy, cur.size, SIX, true);
           if (sc > cur.sc) cur = { ox: cur.ox + dx, oy: cur.oy + dy, size: cur.size, sc };
         }
       };
-      walk(3, 6); walk(1, 2);
+      await walk(3, 6); await walk(1, 2);
       for (const ds of [-12, -6, 6, 12]) {
         const size = cur.size + ds;
         if (size < 220 || size > 306) continue;
-        const sc = fullCellScore(cv, cur.ox - ds / 2, cur.oy - ds / 2, size, SIX, true);
-        if (sc > cur.sc) { cur = { ox: cur.ox - ds / 2, oy: cur.oy - ds / 2, size, sc }; walk(1, 2); }
+        const sc = await S(cv, cur.ox - ds / 2, cur.oy - ds / 2, size, SIX, true);
+        if (sc > cur.sc) { cur = { ox: cur.ox - ds / 2, oy: cur.oy - ds / 2, size, sc }; await walk(1, 2); }
       }
-      return { ...cur, sc: fullCellScore(cv, cur.ox, cur.oy, cur.size) };
+      return { ...cur, sc: await S(cv, cur.ox, cur.oy, cur.size) };
     };
     let best = { ox: 0, oy: 0, size: 300, sc: idCv };
     const shortlist = [];
@@ -1590,20 +1639,20 @@ function estimateAlign(cap) {
     }
     for (const cand of shortlist) {
       if (cand.ox === 0 && cand.oy === 0 && cand.size === 300) continue;
-      const r = refine(cand);
+      const r = await refine(cand);
       if (r.sc > best.sc) best = r;
     }
     for (const ds of [-6, 6]) {
       const size = best.size + ds;
       if (size < 220 || size > 306) continue;
-      const sc = fullCellScore(cv, best.ox - ds / 2, best.oy - ds / 2, size);
+      const sc = await S(cv, best.ox - ds / 2, best.oy - ds / 2, size);
       if (sc > best.sc) best = { ox: best.ox - ds / 2, oy: best.oy - ds / 2, size, sc };
     }
     return best;
   };
   let best = null;
   for (const ai of searchOrder) {
-    const r = fineSearch(caps[ai]);
+    const r = await fineSearch(caps[ai]);
     if (!best || r.sc > best.sc) best = { ai, ...r };
     if (best.sc >= 7.3) break; // decisive peak found
   }
@@ -1613,7 +1662,7 @@ function estimateAlign(cap) {
   for (const dd of [-1.5, 1.5]) {
     const nd = deg + dd;
     if (Math.abs(nd) > 7.5) continue;
-    const sc = fullCellScore(rotateCap(cap, nd), best.ox, best.oy, best.size);
+    const sc = await S(rotateCap(cap, nd), best.ox, best.oy, best.size);
     if (sc > best.sc) { best = { ...best, sc }; deg = nd; }
   }
   const out = { ox: best.ox, oy: best.oy, size: best.size };
@@ -1628,9 +1677,20 @@ function gridSrcIdx(r, c, g) {
   if (g === 2) return [2 - r, 2 - c];
   return [c, 2 - r];
 }
+let analysing = false, wakeLock = null;
+async function grabWakeLock() {
+  try { if (navigator.wakeLock && !wakeLock) { wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => { wakeLock = null; }); } } catch (e) {}
+}
 $('#btnAnalyse').addEventListener('click', async () => {
-  $('#btnAnalyse').disabled = true; $('#btnAnalyse').textContent = '読み取り中…';
+  const btn = $('#btnAnalyse');
+  btn.disabled = true; btn.textContent = '読み取り中…'; btn.classList.add('busy');
   $('#btnShot').disabled = true; $('#btnCapReset').disabled = true; // keep the capture set stable during analysis
+  analysing = true;
+  // let the label actually paint before any heavy work starts (user
+  // report: the label sometimes never appeared because the synchronous
+  // first-face search blocked the very first paint)
+  await new Promise(r => setTimeout(r, 30));
+  grabWakeLock(); // keep the screen on during the long analysis if allowed
   try {
     stopCamera();
     await loadFaceImages(); buildRefTiles();
@@ -1641,7 +1701,19 @@ $('#btnAnalyse').addEventListener('click', async () => {
     $('#photoReview').scrollIntoView({ behavior: 'smooth' });
   } catch (err) {
     alert('読み取りでエラーが起きました：' + err.message);
-  } finally { $('#btnAnalyse').disabled = false; $('#btnAnalyse').textContent = '読み取り結果を確認する'; $('#btnShot').disabled = false; $('#btnCapReset').disabled = false; }
+  } finally {
+    analysing = false;
+    if (wakeLock) { try { wakeLock.release(); } catch (e) {} wakeLock = null; }
+    btn.disabled = false; btn.textContent = '読み取り結果を確認する'; btn.classList.remove('busy');
+    $('#btnShot').disabled = false; $('#btnCapReset').disabled = false;
+  }
+});
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible') return;
+  // returning to the app: re-arm the wake lock mid-analysis, and revive a
+  // camera preview iOS paused while we were away (it otherwise stays black)
+  if (analysing) grabWakeLock();
+  if (stream) { const v = $('#camVideo'); if (v && v.paused) playVideo(v); }
 });
 let lastPhotoNotes = [];
 function rotateFaceAssign(R, pos, g) {
@@ -1682,6 +1754,8 @@ function validationErrorCount(R) {
 async function analyseCaptures() {
   const R = photoReview;
   lastPhotoNotes = [];
+  const analysisSig = capturesSig();
+  const savedCells = loadCells(analysisSig);
   const cellLists = {}; // pos -> rows
   let faceIdx = 0;
   for (const step of CAP_STEPS) {
@@ -1689,9 +1763,11 @@ async function analyseCaptures() {
     // synchronous run would leave the page looking frozen for seconds
     if (faceIdx > 0) { $('#btnAnalyse').textContent = `読み取り中…（${faceIdx}/6面ずみ）`; await new Promise(r => setTimeout(r, 10)); }
     faceIdx++;
+    if (faceIdx > 1) { const prev = CAP_STEPS[faceIdx - 2].pos; if (cellLists[prev]) saveCellsFace(analysisSig, prev, cellLists[prev]); }
     const pos = step.pos;
+    if (savedCells[pos]) { cellLists[pos] = savedCells[pos]; R.cand[pos] = savedCells[pos]; continue; }
     const cap = captures[pos];
-    const al = estimateAlign(cap);
+    const al = await estimateAlign(cap);
     const capA = al.rot ? rotateCap(cap, al.rot) : cap;
     cellLists[pos] = [];
     for (let r = 0; r < 3; r++) {
@@ -1712,9 +1788,11 @@ async function analyseCaptures() {
         list.sort((a, b) => b.score - a.score);
         cellLists[pos][r][c] = list;
         R.cand[pos][r][c] = list;
+        if ((r * 3 + c) % 3 === 2) await new Promise(yr => setTimeout(yr, 0));
       }
     }
   }
+  { const lastPos = CAP_STEPS[CAP_STEPS.length - 1].pos; if (cellLists[lastPos]) saveCellsFace(analysisSig, lastPos, cellLists[lastPos]); }
   // greedy global assignment
   const pairs = [];
   for (const step of CAP_STEPS) { const pos = step.pos;
@@ -1788,6 +1866,7 @@ async function analyseCaptures() {
       const key = [sc, ok, -rots];
       if (!bestKey || key[0] > bestKey[0] || (key[0] === bestKey[0] && (key[1] > bestKey[1] || (key[1] === bestKey[1] && key[2] > bestKey[2])))) { bestKey = key; bestCombo = combo; }
       if (sc === 20 && ok && rots === 0) break;
+      if (n % 256 === 255) await new Promise(yr => setTimeout(yr, 0));
     }
     const applied = [];
     for (const p of freeFaces) {
@@ -1862,6 +1941,22 @@ $('#btnManualFix').addEventListener('click', () => {
 });
 $('#btnPhotoCheck').addEventListener('click', () => photoReview.checkAndApply($('#photoErrors'), $('#photoOk'), null));
 $('#btnPhotoApply').addEventListener('click', (e) => photoReview.checkAndApply($('#photoErrors'), $('#photoOk'), e.currentTarget));
+/* Restore checkpointed captures after a reload / page kill (round 3). */
+(async () => {
+  try {
+    const o = JSON.parse(localStorage.getItem(LS_CAP) || 'null');
+    if (!o) return;
+    let n = 0;
+    for (const pos of Object.keys(o)) {
+      const img = new Image();
+      await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = o[pos]; });
+      const cv = document.createElement('canvas'); cv.width = cv.height = 300;
+      cv.getContext('2d').drawImage(img, 0, 0, 300, 300);
+      captures[pos] = cv; captureSrc[pos] = o[pos]; n++;
+    }
+    if (n) { capNote = `前回の写真（${n}面）を復元しました。このまま「読み取り結果を確認する」を押せます。`; updateCapUI(); }
+  } catch (e) {}
+})();
 updateCapUI();
 </script>
 </body>
