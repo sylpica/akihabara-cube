@@ -1109,7 +1109,7 @@ const captures = {}; // pos -> canvas 300x300
    the captures and each finished face's candidate lists are checkpointed
    to localStorage; if the page is killed or reloaded, reopening restores
    the photos and the next analysis resumes from the unfinished faces. */
-const LS_CAP = 'akicube.captures.v1', LS_CELLS = 'akicube.cells.v1';
+const LS_CAP = 'akicube.captures.v1', LS_CELLS = 'akicube.cells.v2';
 const captureSrc = {}; // pos -> the exact dataURL string saved/restored
 function saveCaptures() {
   try {
@@ -1434,6 +1434,29 @@ function grayVec(cv, n) {
   for (let i = 0; i < n * n; i++) out[i] /= norm;
   return out;
 }
+/* Gradient-orientation histogram (HOG) of a standardized 48x48 cell:
+   4x4 blocks x 8 unsigned orientation bins, magnitude-weighted,
+   L2-normalized. Line structure (map roads, rail lines, text strokes)
+   survives illumination changes that wash out raw gray patterns.
+   Measured 2026-11-15 on the photos2 real-photo set: adding HOG to the
+   identification score raised per-cell top-1 from 15/54 to 21/54. */
+function hogVec(cv) {
+  const d = cv.getContext('2d').getImageData(0, 0, 48, 48).data;
+  const g = new Float32Array(48 * 48);
+  for (let i = 0; i < 48 * 48; i++) g[i] = 0.299 * d[i * 4] + 0.587 * d[i * 4 + 1] + 0.114 * d[i * 4 + 2];
+  const v = new Float32Array(16 * 8);
+  for (let y = 1; y < 47; y++) for (let x = 1; x < 47; x++) {
+    const gx = g[y * 48 + x + 1] - g[y * 48 + x - 1];
+    const gy = g[(y + 1) * 48 + x] - g[(y - 1) * 48 + x];
+    const mag = Math.hypot(gx, gy); if (mag < 4) continue;
+    let ang = Math.atan2(gy, gx); if (ang < 0) ang += Math.PI;
+    const bin = Math.min(7, Math.floor(ang / Math.PI * 8));
+    v[((y / 12 | 0) * 4 + (x / 12 | 0)) * 8 + bin] += mag;
+  }
+  let n = 0; for (let i = 0; i < v.length; i++) n += v[i] * v[i];
+  n = Math.sqrt(n) || 1; for (let i = 0; i < v.length; i++) v[i] /= n;
+  return v;
+}
 function featuresOf(canvas48, fast) {
   const cv = standardizeCell(canvas48);
   const ctx = cv.getContext('2d');
@@ -1448,7 +1471,7 @@ function featuresOf(canvas48, fast) {
   // fast mode (alignment search only) uses a 12x12 pattern: the alignment
   // peak sits at the same place, at a quarter of the dot-product cost.
   if (fast) return { hist, gray: grayVec(cv, 12) };
-  return { hist, gray: grayVec(cv, 24), gray12: grayVec(cv, 12) };
+  return { hist, gray: grayVec(cv, 24), gray12: grayVec(cv, 12), hog: hogVec(cv) };
 }
 function rotateCanvas48(src, k) {
   if (k === 0) return src;
@@ -1473,7 +1496,16 @@ function scoreFeat(cellFeat, tileFeat) {
   let hd = 0; for (let i = 0; i < 64; i++) hd += Math.abs(cellFeat.hist[i] - tileFeat.hist[i]);
   const histSim = 1 - hd / 2;
   let dot = 0; for (let i = 0; i < cellFeat.gray.length; i++) dot += cellFeat.gray[i] * tileFeat.gray[i];
-  return 0.45 * histSim + 0.55 * ((dot + 1) / 2);
+  const graySim = (dot + 1) / 2;
+  // Identification scoring (both sides carry HOG): 0.30/0.30/0.40 mix.
+  // The alignment search deliberately stays on the legacy weights below:
+  // its thresholds (identity early-exit, margin gate) are calibrated to
+  // that scale, and its synthetic cell features carry no HOG.
+  if (cellFeat.hog && tileFeat.hog) {
+    let hdot = 0; for (let i = 0; i < cellFeat.hog.length; i++) hdot += cellFeat.hog[i] * tileFeat.hog[i];
+    return 0.30 * histSim + 0.30 * graySim + 0.40 * hdot;
+  }
+  return 0.45 * histSim + 0.55 * graySim;
 }
 /* Sample one cell of a captured face. (ox, oy, size) is where the cube face
    actually sits inside the 300x300 capture; cells are sampled with a 10%
@@ -1578,11 +1610,15 @@ async function estimateAlign(cap) {
   const ANGS = [-6, -3, 0, 3, 6];
   const ZERO = 2; // index of angle 0
   const caps = ANGS.map(a => a === 0 ? cap : rotateCap(cap, a));
-  // joint coarse pass: best score per angle
+  // joint coarse pass: best score per angle. Offset grid widened to
+  // +-36 (2026-11-15): at +-24 a 50px framing shift lost a whole state
+  // (87/108, 1/2); at +-36 it reads 106/108, 2/2, with tilt6s/shift35/
+  // tilt6 unchanged at 108/108. The vote costs more on hard faces; the
+  // identity early-exit still keeps well-framed faces under a second.
   const bestPerAngle = ANGS.map(() => -1);
   for (let ai = 0; ai < ANGS.length; ai++) {
     for (const size of [300, 276, 252, 228]) {
-      for (const dx of [-24, 0, 24]) for (const dy of [-24, 0, 24]) {
+      for (const dx of [-36, -18, 0, 18, 36]) for (const dy of [-36, -18, 0, 18, 36]) {
         const ox = (300 - size) / 2 + dx, oy = (300 - size) / 2 + dy;
         const sc = await S(caps[ai], ox, oy, size, FOUR, true);
         if (sc > bestPerAngle[ai]) bestPerAngle[ai] = sc;
@@ -1780,7 +1816,7 @@ async function analyseCaptures() {
           const t = refTiles[key];
           let best = -1, bestK = 0;
           for (let k = 0; k < 4; k++) {
-            const sc = scoreFeat({ hist: feats[0].hist, gray: feats[k].gray }, t.feat);
+            const sc = scoreFeat({ hist: feats[0].hist, gray: feats[k].gray, hog: feats[k].hog }, t.feat);
             if (sc > best) { best = sc; bestK = k; }
           }
           list.push({ home: t.home, hrow: t.hrow, hcol: t.hcol, rot: (4 - bestK) % 4, score: best });
@@ -1793,10 +1829,20 @@ async function analyseCaptures() {
     }
   }
   { const lastPos = CAP_STEPS[CAP_STEPS.length - 1].pos; if (cellLists[lastPos]) saveCellsFace(analysisSig, lastPos, cellLists[lastPos]); }
-  // greedy global assignment
+  // greedy global assignment. CENTRES ARE PINNED, not matched: on a real
+  // cube the centre pieces never move relative to each other, so the
+  // centre cell of the photo taken at position P is physically certain
+  // to be P's own centre tile - only its rotation is unknown. Letting it
+  // compete with all 54 tiles misidentified 4 of 6 centres on the user's
+  // real handheld shots (2026-11-15 screenshot) and poisoned the whole
+  // assignment. Pin each centre to its tile (rotation from the matcher),
+  // and keep centre tiles out of the pool for the other 48 cells.
   const pairs = [];
   for (const step of CAP_STEPS) { const pos = step.pos;
-    for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) for (const cd of cellLists[pos][r][c]) pairs.push({ pos, r, c, cd });
+    for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) {
+      if (r === 1 && c === 1) continue;
+      for (const cd of cellLists[pos][r][c]) { if (cd.hrow === 1 && cd.hcol === 1) continue; pairs.push({ pos, r, c, cd }); }
+    }
   }
   pairs.sort((a, b) => b.cd.score - a.cd.score);
   const usedTile = new Set(), filled = new Set();
@@ -1808,6 +1854,11 @@ async function analyseCaptures() {
     const margin = list[0].score - list[1].score;
     const flag = margin < 0.05 || list[0].score < 0.5;
     R.assign[pos][r][c] = { home: cd.home, hrow: cd.hrow, hcol: cd.hcol, rot: cd.rot, flag, auto: false };
+  }
+  for (const step of CAP_STEPS) { const pos = step.pos;
+    const home = POS_HOME_FACE[pos];
+    const entry = cellLists[pos][1][1].find(cd => cd.home === home && cd.hrow === 1 && cd.hcol === 1);
+    R.assign[pos][1][1] = { home, hrow: 1, hcol: 1, rot: entry ? entry.rot : 0, flag: !entry || entry.score < 0.5, auto: false };
   }
   // centre rotations from observed rotations
   for (const step of CAP_STEPS) {
@@ -1877,6 +1928,79 @@ async function analyseCaptures() {
       lastPhotoNotes.push(...applied);
       if (!captures.D) restoreBottom(R);
     }
+  }
+  /* Validity-constrained swap refinement. The greedy assignment is
+     appearance-only and characteristically leaves 2-tile exchanges (each
+     tile sitting in the other's cell) and combinations no real cube can
+     have - the user's solved-cube read came back full of both. Walk all
+     pairs of non-centre cells; accept a swap when it raises the number
+     of real cubies (slot score) at no real score cost, or when it raises
+     the total match score at equal validity. Never accept a validity
+     decrease. Scores and rotations come from each cell's own candidate
+     list, so a swapped-in tile keeps the rotation the matcher preferred
+     at that cell. Centres stay pinned. */
+  {
+    const faces = ['U', 'R', 'F', 'D', 'L', 'B'];
+    const slotScoreOf = (fc) => {
+      if (fc.includes('?')) return -1;
+      let score = 0;
+      for (let i = 0; i < 8; i++) {
+        const lets = CORNER_FACELET[i].map(ix => fc[ix]);
+        for (let j = 0; j < 8; j++) { const cc = CORNER_COLOR[j];
+          if (lets.includes(cc[0]) && lets.includes(cc[1]) && lets.includes(cc[2])) { score++; break; } }
+      }
+      for (let i = 0; i < 12; i++) {
+        const lets = EDGE_FACELET[i].map(ix => fc[ix]);
+        for (let j = 0; j < 12; j++) { const ec = EDGE_COLOR[j];
+          if (lets.includes(ec[0]) && lets.includes(ec[1])) { score++; break; } }
+      }
+      return score;
+    };
+    const fcNow = () => {
+      const fc = new Array(54);
+      for (let fi = 0; fi < 6; fi++) { const pos = faces[fi];
+        for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) {
+          const a = R.assign[pos] && R.assign[pos][r][c];
+          fc[fi * 9 + r * 3 + c] = a ? FACE_HOME_POS[a.home] : '?';
+        } }
+      return fc;
+    };
+    const entryOf = (pos, r, c, a) => (cellLists[pos] && cellLists[pos][r][c])
+      ? cellLists[pos][r][c].find(cd => cd.home === a.home && cd.hrow === a.hrow && cd.hcol === a.hcol) : null;
+    const flagFor = (pos, r, c, e) => {
+      let other = -1;
+      for (const cd of cellLists[pos][r][c]) { if (cd !== e && cd.score > other) other = cd.score; }
+      return (e.score - other) < 0.05 || e.score < 0.5;
+    };
+    const cells = [];
+    for (const pos of faces) for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) {
+      if (r === 1 && c === 1) continue;
+      if (R.assign[pos] && R.assign[pos][r][c] && entryOf(pos, r, c, R.assign[pos][r][c])) cells.push([pos, r, c]);
+    }
+    let curSlot = slotScoreOf(fcNow());
+    let curTot = 0;
+    for (const [pos, r, c] of cells) curTot += entryOf(pos, r, c, R.assign[pos][r][c]).score;
+    let improved = true, passes = 0, swapCount = 0;
+    while (improved && passes++ < 8) {
+      improved = false;
+      for (let i = 0; i < cells.length; i++) for (let j = i + 1; j < cells.length; j++) {
+        const [p1, r1, c1] = cells[i], [p2, r2, c2] = cells[j];
+        const a1 = R.assign[p1][r1][c1], a2 = R.assign[p2][r2][c2];
+        if (a1.home === a2.home && a1.hrow === a2.hrow && a1.hcol === a2.hcol) continue;
+        const e1 = entryOf(p1, r1, c1, a2), e2 = entryOf(p2, r2, c2, a1);
+        if (!e1 || !e2) continue;
+        const s1 = entryOf(p1, r1, c1, a1).score, s2 = entryOf(p2, r2, c2, a2).score;
+        const newTot = curTot - s1 - s2 + e1.score + e2.score;
+        R.assign[p1][r1][c1] = { home: a2.home, hrow: a2.hrow, hcol: a2.hcol, rot: e1.rot, flag: flagFor(p1, r1, c1, e1), auto: false };
+        R.assign[p2][r2][c2] = { home: a1.home, hrow: a1.hrow, hcol: a1.hcol, rot: e2.rot, flag: flagFor(p2, r2, c2, e2), auto: false };
+        const newSlot = slotScoreOf(fcNow());
+        if ((newSlot > curSlot && newTot > curTot - 0.25) || (newSlot === curSlot && newTot > curTot + 1e-9)) {
+          curSlot = newSlot; curTot = newTot; improved = true; swapCount++;
+        } else { R.assign[p1][r1][c1] = a1; R.assign[p2][r2][c2] = a2; }
+      }
+      await new Promise(yr => setTimeout(yr, 0));
+    }
+    if (swapCount) lastPhotoNotes.push(`ピースの整合性を確かめながら ${swapCount} 件の入れ替えを自動で直しました。`);
   }
   R.render();
 }
