@@ -292,7 +292,7 @@
         <li>手ブレしやすいので、キューブを机に置くか、両手でしっかり持って撮ってください。</li>
         <li>結果で「要確認」になったマスは、実物と見比べて「手で直す」で直してください。</li>
       </ul>
-      <p class="verstamp">バージョン：2026-11-16 第7版</p>
+      <p class="verstamp">バージョン：2026-11-16 第8版</p>
     </div>
   </section>
 
@@ -1366,9 +1366,29 @@ $('#btnShot').addEventListener('click', async () => {
   } finally { shooting = false; }
 });
 $('#btnFile').addEventListener('click', () => $('#fileInput').click());
+/* Reset uses an in-page two-tap confirmation, never a native confirm()
+   dialog: in some in-app browsers a JS dialog blocks the page for good
+   (the user's "reset freezes the camera screen" report persisted even
+   after the post-dialog preview resume below was added). The second tap
+   within 3 s executes; anything else disarms. */
+let capResetArmed = false, capResetArmTimer = null;
+function disarmCapReset() {
+  capResetArmed = false;
+  if (capResetArmTimer) { clearTimeout(capResetArmTimer); capResetArmTimer = null; }
+  const btn = $('#btnCapReset');
+  btn.textContent = '🗑 写真を全部リセット'; btn.classList.remove('busy');
+}
 $('#btnCapReset').addEventListener('click', () => {
+  if (shooting) return;
   if (!Object.keys(captures).length && !loadedImage && $('#photoReview').classList.contains('hidden')) return;
-  if (!confirm('撮影した写真を全部消して、最初から撮り直しますか？')) return;
+  if (!capResetArmed) {
+    capResetArmed = true;
+    const btn = $('#btnCapReset');
+    btn.textContent = '本当に全部消しますか？（もう一度押すと消去）'; btn.classList.add('busy');
+    capResetArmTimer = setTimeout(disarmCapReset, 3000);
+    return;
+  }
+  disarmCapReset();
   for (const k of Object.keys(captures)) { delete captures[k]; delete captureSrc[k]; }
   try { localStorage.removeItem(LS_CAP); localStorage.removeItem(LS_CELLS); } catch (e) {}
   capStep = 0; capNote = ''; capPicked = false;
@@ -1378,11 +1398,13 @@ $('#btnCapReset').addEventListener('click', () => {
   const ci = $('#camImg'); ci.classList.add('hidden'); ci.removeAttribute('src');
   $('#photoReview').classList.add('hidden');
   if (stream) {
-    // iOS pauses the preview around the confirm dialog; resume it so the
-    // camera screen does not stay frozen after a reset (user report).
     const v = $('#camVideo');
     v.classList.remove('hidden'); $('#camHint').classList.add('hidden');
     if (v.paused) { v.play().catch(() => {}); }
+    // If the preview does not actually come back to life, tear the camera
+    // down to the honest hint state instead of leaving a frozen frame;
+    // the next 撮影する press then restarts the camera cleanly.
+    setTimeout(() => { if (stream && !previewIsLive(v)) { stopCamera(); showCamHint(); } }, 500);
   } else showCamHint();
   updateCapUI();
 });
@@ -1779,7 +1801,11 @@ $('#btnAnalyse').addEventListener('click', async () => {
     $('#photoReview').scrollIntoView({ behavior: 'smooth' });
     anaFinished = true; updateAnaBar();
   } catch (err) {
-    alert('読み取りでエラーが起きました：' + err.message);
+    // In-page message, not alert(): a native dialog can block the page
+    // in some in-app browsers (same class as the reset freeze).
+    const pn = $('#photoNote');
+    pn.style.display = 'block';
+    pn.textContent = '読み取りでエラーが起きました：' + err.message + '　写真は保存されているので、もう一度お試しください。';
   } finally {
     analysing = false;
     if (wakeLock) { try { wakeLock.release(); } catch (e) {} wakeLock = null; }
