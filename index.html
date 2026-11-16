@@ -2012,7 +2012,28 @@ async function analyseCaptures() {
     const applied = [];
     for (const p of freeFaces) {
       const g = bestCombo[p] || 0;
-      if (g) { rotateFaceAssign(R, p, g); applied.push(`${POSFACE_LABEL[p]}は${g * 90}°回って写っていたので、自動で向きを直して読み取りました。`); }
+      if (g) {
+        rotateFaceAssign(R, p, g);
+        /* The candidate lists are built in photo orientation, but swap
+           refinement and the picker read them in the repaired (app) frame.
+           Rotate the lists with the assignment — same grid rotation, and
+           each entry's preferred rotation advances by g — or every
+           post-repair score lookup silently reads the wrong cell. (Gold
+           benchmark 2026-11-16: a perfect 48/48 greedy read was destroyed
+           by 67 phantom swaps, ending at 15/54.) */
+        const grid = cellLists[p];
+        if (grid) {
+          const old = grid.map(row => row.slice());
+          for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) {
+            const [sr, sc] = gridSrcIdx(r, c, g);
+            const list = old[sr][sc];
+            grid[r][c] = list;
+            if (list) for (const e of list) e.rot = (e.rot + g) % 4;
+            if (R.cand[p]) R.cand[p][r][c] = list;
+          }
+        }
+        applied.push(`${POSFACE_LABEL[p]}は${g * 90}°回って写っていたので、自動で向きを直して読み取りました。`);
+      }
     }
     if (applied.length) {
       lastPhotoNotes.push(...applied);
