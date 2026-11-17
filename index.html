@@ -85,6 +85,9 @@
   .cell.empty { border-style: dashed; }
   .cell .flag { position: absolute; left: 0; right: 0; bottom: -1px; font-size: 9px; line-height: 1.25; text-align: center; background: rgba(180,60,40,.92); color: #fff; border-radius: 0 0 4px 4px; z-index: 2; }
   .cell .flag.mflag { background: rgba(30,90,180,.92); }
+  .cell.dup { border-color: #ff5040; box-shadow: 0 0 0 2px rgba(255,60,40,.9); z-index: 1; }
+  .cell .flag.dupf { background: rgba(215,25,15,.96); font-weight: 700; font-size: 10px; }
+  .frotate { display: block; margin: 3px auto 0; font-size: 10px; padding: 2px 8px; border-radius: 8px; background: #2a3446; color: #c8d4e4; border: 1px solid #39445a; cursor: pointer; white-space: nowrap; }
   .cell .badge { position: absolute; top: 0; left: 0; font-size: 9px; background: rgba(0,0,0,.65); color: #ffd479; padding: 0 3px; border-radius: 4px 0 4px 0; z-index: 2; }
   .cell.center .tile { box-shadow: inset 0 0 0 2px rgba(255,212,121,.55); }
   .errors { background: #4a2320; border: 1px solid #9b2c2c; color: #ffd9d4; border-radius: 9px; padding: 8px 10px; font-size: 13px; margin: 8px 0; display: none; }
@@ -267,7 +270,7 @@
       <button class="btn" id="btnCapReset">🗑 写真を全部リセット</button>
     </div>
     <div id="photoReview" class="hidden">
-      <p class="stepdesc">自動で読み取った結果です。「要確認」のマスや、写真が上手く反映されていないマスは、「手で直す」ボタン（またはマスをタップ）から、全ステッカーの中から正しいものを選び直せます。中心のマスは、タップして候補選択と回転（↻）ができます。</p>
+      <p class="stepdesc">自動で読み取った結果です。赤い「重複」のマスは、同じピースが2か所にあって必ず直す必要があります。「要確認」のマスや写真と違うマスは、「手で直す」ボタン（またはマスをタップ）から選び直せます。面全体の向きが違うときは、各面の下の「↻ この面を90°回す」で面ごと回せます。中心のマスは、タップして候補選択と回転（↻）ができます。</p>
       <div class="okmsg" id="photoNote" style="display:none"></div>
       <div class="errors" id="photoErrors"></div>
       <div class="okmsg" id="photoOk"></div>
@@ -290,9 +293,10 @@
         <li>読み取りには時間がかかることがあります（枠から大きく外れた写真ほど長くかかります）。読み取り中は、このアプリを開いたままにしてください。「あそぶ」タブで遊んで待つこともできます（進み具合は画面の下に出ます）。ほかのアプリに切り替えると読み取りは一時停止しますが、写真と進み具合は保存されるので、戻ってから続きで大丈夫です。</li>
         <li>向きは「中心の文字がまっすぐ読める」ことが目安です。多少回って写っても、少し位置がずれても、読み取りのときに自動で補正します（枠いっぱいに大きく写すのが一番確実です）。</li>
         <li>手ブレしやすいので、キューブを机に置くか、両手でしっかり持って撮ってください。</li>
-        <li>結果で「要確認」になったマスは、実物と見比べて「手で直す」で直してください。</li>
+        <li>結果で「要確認」になったマスは、実物と見比べて「手で直す」で直してください。赤い「重複」のマスは、同じピースが2か所にあるという意味で、必ず直す必要があります。</li>
+        <li>「画像ファイルから選ぶ」で写真を選ぶと、その場で取り込まれます（撮影ボタンを押す必要はありません）。面が小さく写った写真は精度が大きく落ちるので、面が大きく写った写真を使ってください。</li>
       </ul>
-      <p class="verstamp">バージョン：2026-11-16 第8版</p>
+      <p class="verstamp">バージョン：2026-11-18 第9版</p>
     </div>
   </section>
 
@@ -335,6 +339,7 @@
     <div id="sheetCands"></div>
     <div class="btnrow">
       <button class="btn" id="sheetRotate">↻ 中心を90°回す</button>
+      <button class="btn" id="sheetFaceRotate">↻ この面全体を90°回す</button>
       <button class="btn" id="sheetClear">このマスを空にする</button>
       <button class="btn primary" id="sheetClose">閉じる</button>
     </div>
@@ -846,6 +851,7 @@ function makeReview(netEl, opts) {
   }
   R.render = function () {
     netEl.innerHTML = '';
+    const dup = R.dupCells();
     for (const item of NET_LAYOUT) {
       if (!item) { const d = document.createElement('div'); d.className = 'blank'; netEl.appendChild(d); continue; }
       const pos = item;
@@ -858,19 +864,29 @@ function makeReview(netEl, opts) {
         cell.className = 'cell' + (r === 1 && c === 1 ? ' center' : '');
         const a = R.assign[pos][r][c];
         if (a) {
+          const isDup = dup.has(pos + ',' + r + ',' + c);
+          if (isDup) cell.classList.add('dup');
           const t = document.createElement('div'); t.className = 'tile';
           const dispRot = (r === 1 && c === 1) ? (baseRotOf(pos) + R.centreRot[pos]) % 4 : (a.rot || 0);
           tileBg(t, a.home, a.hrow, a.hcol, dispRot);
           cell.appendChild(t);
           const badge = document.createElement('span'); badge.className = 'badge'; badge.textContent = a.home;
           cell.appendChild(badge);
-          if (a.flag) { const f = document.createElement('span'); f.className = 'flag'; f.textContent = '要確認'; cell.appendChild(f); }
-          if (a.manual) { const f = document.createElement('span'); f.className = 'flag mflag'; f.textContent = '手で修正'; cell.appendChild(f); }
+          if (isDup) { const f = document.createElement('span'); f.className = 'flag dupf'; f.textContent = '重複'; cell.appendChild(f); }
+          else if (a.flag) { const f = document.createElement('span'); f.className = 'flag'; f.textContent = '要確認'; cell.appendChild(f); }
+          if (a.manual && !isDup) { const f = document.createElement('span'); f.className = 'flag mflag'; f.textContent = '手で修正'; cell.appendChild(f); }
         } else cell.classList.add('empty');
         cell.addEventListener('click', () => openPicker(R, pos, r, c));
         cells.appendChild(cell);
       }
-      g.appendChild(cells); netEl.appendChild(g);
+      g.appendChild(cells);
+      if (opts.faceRotate !== false) {
+        const rb = document.createElement('button');
+        rb.className = 'frotate'; rb.textContent = '↻ この面を90°回す';
+        rb.addEventListener('click', () => rotateReviewFace(R, pos));
+        g.appendChild(rb);
+      }
+      netEl.appendChild(g);
     }
   };
   R.tileUsedAt = function (home, hr, hc, except) {
@@ -880,6 +896,48 @@ function makeReview(netEl, opts) {
       if (a && a.home === home && a.hrow === hr && a.hcol === hc) return { pos: p, r, c };
     }
     return null;
+  };
+  /* Cells that MUST be checked by eye: pieces that appear twice (the
+     same corner/edge piece in two slots, or the same sticker in two
+     cells) and slots whose stickers form no real piece at all. A bare
+     global "duplicate piece" error left the user hunting through 54
+     cells for the culprits (user report 2026-11-18); now the cells
+     themselves carry the mark. Returns a Set of "pos,r,c" keys. */
+  R.dupCells = function () {
+    const keys = new Set();
+    const order = ['U', 'R', 'F', 'D', 'L', 'B'];
+    const keyOfIx = (ix) => order[(ix / 9) | 0] + ',' + (((ix % 9) / 3) | 0) + ',' + (ix % 3);
+    const seenTile = {};
+    let missing = false;
+    const fc = new Array(54);
+    order.forEach((p, fi) => { for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) {
+      const a = R.assign[p][r][c];
+      if (!a) { missing = true; fc[fi * 9 + r * 3 + c] = '?'; continue; }
+      const tk = a.home + a.hrow + a.hcol;
+      if (seenTile[tk]) { keys.add(seenTile[tk]); keys.add(p + ',' + r + ',' + c); }
+      else seenTile[tk] = p + ',' + r + ',' + c;
+      fc[fi * 9 + r * 3 + c] = FACE_HOME_POS[a.home];
+    } });
+    if (!missing) {
+      const fcs = fc.join('');
+      const cub = extractCubies(fcs);
+      if (cub) {
+        const markDup = (arr, table) => {
+          const first = {};
+          arr.forEach((piece, slot) => {
+            if (first[piece] !== undefined) {
+              table[first[piece]].forEach(ix => keys.add(keyOfIx(ix)));
+              table[slot].forEach(ix => keys.add(keyOfIx(ix)));
+            } else first[piece] = slot;
+          });
+        };
+        markDup(cub.cp, CORNER_FACELET); markDup(cub.ep, EDGE_FACELET);
+      } else {
+        for (let i = 0; i < 8; i++) { const lets = CORNER_FACELET[i].map(ix => fcs[ix]); if (!CORNER_COLOR.some(cc => lets.includes(cc[0]) && lets.includes(cc[1]) && lets.includes(cc[2]))) CORNER_FACELET[i].forEach(ix => keys.add(keyOfIx(ix))); }
+        for (let i = 0; i < 12; i++) { const lets = EDGE_FACELET[i].map(ix => fcs[ix]); if (!EDGE_COLOR.some(ec => lets.includes(ec[0]) && lets.includes(ec[1]))) EDGE_FACELET[i].forEach(ix => keys.add(keyOfIx(ix))); }
+      }
+    }
+    return keys;
   };
   R.setCell = function (pos, r, c, tile, rot, flag) {
     // swap if the tile is used elsewhere
@@ -967,7 +1025,8 @@ function openPicker(R, pos, r, c) {
     for (let hr = 0; hr < 3; hr++) for (let hc = 0; hc < 3; hc++) mkCand(row, { home: f, hrow: hr, hcol: hc }, 0, `${hr + 1}-${hc + 1}`);
     wrap.appendChild(row);
   }
-  $('#sheetRotate').style.display = isCentre ? '' : 'none';
+  $('#sheetRotate').textContent = isCentre ? '↻ 中心を90°回す' : '↻ ステッカーを90°回す';
+  $('#sheetRotate').style.display = (isCentre || cur) ? '' : 'none';
   $('#sheetClear').style.display = R.opts.allowClear ? '' : 'none';
   $('#sheet').style.display = 'block';
 }
@@ -976,8 +1035,21 @@ $('#sheet').addEventListener('click', (e) => { if (e.target.id === 'sheet') $('#
 $('#sheetRotate').addEventListener('click', () => {
   const R = sheetReview; if (!R || !R.cur) return;
   const { pos, r, c } = R.cur;
-  R.centreRot[pos] = (R.centreRot[pos] + 1) % 4;
+  if (r === 1 && c === 1) {
+    R.centreRot[pos] = (R.centreRot[pos] + 1) % 4;
+  } else {
+    const a = R.assign[pos][r][c];
+    if (!a) return;
+    a.rot = ((a.rot || 0) + 1) % 4;
+    if (R.opts.photo) a.manual = true;
+  }
   R.render(); openPicker(R, pos, r, c);
+});
+$('#sheetFaceRotate').addEventListener('click', () => {
+  const R = sheetReview; if (!R || !R.cur) return;
+  const { pos, r, c } = R.cur;
+  rotateReviewFace(R, pos);
+  openPicker(R, pos, r, c);
 });
 $('#sheetClear').addEventListener('click', () => {
   const R = sheetReview; if (!R || !R.cur) return;
@@ -1152,6 +1224,7 @@ function saveCellsFace(sig, pos, lists) {
 }
 let capStep = 0;
 let stream = null, loadedImage = null;
+let filePreviewHold = false; // a picked file's photo stays on screen after its instant capture
 let loadedURL = null; // object URL backing loadedImage (revoked on replace/reset)
 let camEpoch = 0; // bumped by stopCamera(); a start that began before the bump aborts itself
 const CAMHINT_HTML = $('#camHint').innerHTML;
@@ -1174,7 +1247,7 @@ function stopCamera() {
   if (stream) { for (const t of stream.getTracks()) t.stop(); stream = null; }
   const v = $('#camVideo'); try { v.pause(); } catch (e) {}
   v.srcObject = null; v.classList.add('hidden');
-  if (!loadedImage) showCamHint();
+  if (!loadedImage && !filePreviewHold) showCamHint();
 }
 const waitMs = ms => new Promise(r => setTimeout(r, ms));
 /* play() can stay pending indefinitely on some WKWebView states; never let
@@ -1198,6 +1271,7 @@ async function startCameraInner() {
   const v = $('#camVideo');
   if (stream) { v.classList.remove('hidden'); $('#camHint').classList.add('hidden'); $('#camImg').classList.add('hidden'); if (v.paused) await playVideo(v); return true; }
   const epoch = camEpoch;
+  filePreviewHold = false;
   // Show the video element BEFORE the stream attaches: in WKWebView a video
   // that is display:none when srcObject is set may never paint frames -- the
   // preview stays black while capturing still works (user report 2026-11-14).
@@ -1271,13 +1345,13 @@ function updateCapUI() {
   const selCaptured = !!captures[step.pos];
   if (done >= total && capPicked && selCaptured) {
     $('#capTitle').textContent = '撮り直し：' + step.title.split(' ').slice(1).join(' ');
-    $('#capDesc').textContent = (capNote ? capNote + ' ' : '') + 'この面は撮影済みです。キューブのその面をカメラに向けて「📷 撮影する」を押すと撮り直せます。別の面はサムネイルで選んでください。';
+    $('#capDesc').textContent = (capNote ? capNote + ' ' : '') + 'この面は撮影済みです。キューブのその面をカメラに向けて「📷 撮影する」を押すか、画像ファイルを選び直すと撮り直せます。別の面はサムネイルで選んでください。';
   } else if (done >= total) {
     $('#capTitle').textContent = total + '面そろいました';
     $('#capDesc').textContent = (capNote ? capNote + ' ' : '') + '「読み取り結果を確認する」を押してください。撮り直したい面は、下のサムネイルで選んでから撮影します。';
   } else if (selCaptured) {
     $('#capTitle').textContent = '撮り直し：' + step.title.split(' ').slice(1).join(' ');
-    $('#capDesc').textContent = (capNote ? capNote + ' ' : '') + 'この面は撮影済みです。キューブのその面をカメラに向けて「📷 撮影する」を押すと撮り直せます。別の面はサムネイルで選んでください。';
+    $('#capDesc').textContent = (capNote ? capNote + ' ' : '') + 'この面は撮影済みです。キューブのその面をカメラに向けて「📷 撮影する」を押すか、画像ファイルを選び直すと撮り直せます。別の面はサムネイルで選んでください。';
   } else {
     $('#capTitle').textContent = step.title;
     // Framing is the biggest user-side accuracy lever (measured
@@ -1309,6 +1383,107 @@ function captureFrom(src, sw, sh) {
   const dw = sw * s, dh = sh * s;
   ctx.drawImage(src, (300 - dw) / 2, (300 - dh) / 2, dw, dh);
   return cv;
+}
+/* Tiny grayscale signature of a capture, used to spot the same image
+   being used for two different faces: a frozen camera frame, or the
+   same file picked twice (both produce a plausible-looking but wrong
+   read -- measured 2026-11-18: a duplicated face read 47/54 with no
+   error shown). Calibrated the same day: identical images score ~0,
+   a handheld re-shot of the same face scores ~19, different faces far
+   higher -- so the guard (threshold 4) only fires on (near-)identical
+   images, never on a genuine re-shot. */
+const capSigs = {}; // pos -> Float32Array(256)
+function captureSigOf(cv) {
+  const t = document.createElement('canvas'); t.width = t.height = 16;
+  const x = t.getContext('2d'); x.drawImage(cv, 0, 0, 16, 16);
+  const d = x.getImageData(0, 0, 16, 16).data;
+  const out = new Float32Array(256);
+  for (let i = 0; i < 256; i++) out[i] = (d[i * 4] + d[i * 4 + 1] + d[i * 4 + 2]) / 3;
+  return out;
+}
+function sigMAD(a, b) { let s = 0; for (let i = 0; i < 256; i++) s += Math.abs(a[i] - b[i]); return s / 256; }
+/* How much of the frame the cube face fills, estimated from texture
+   extent: the map artwork is high-frequency, tabletops are smooth.
+   Used only to warn about too-small faces at capture time, while the
+   user can still retake the shot (a face under ~73% of the frame used
+   to be unreadable; under ~55% it still is). */
+function faceCoverage(cv) {
+  const t = document.createElement('canvas'); t.width = t.height = 60;
+  const x = t.getContext('2d'); x.drawImage(cv, 0, 0, 60, 60);
+  const d = x.getImageData(0, 0, 60, 60).data;
+  const g = new Float32Array(3600);
+  for (let i = 0; i < 3600; i++) g[i] = (d[i * 4] + d[i * 4 + 1] + d[i * 4 + 2]) / 3;
+  const lineTex = (horizontal) => {
+    const out = [];
+    for (let a = 0; a < 60; a++) {
+      let m = 0; for (let b = 0; b < 60; b++) m += horizontal ? g[a * 60 + b] : g[b * 60 + a]; m /= 60;
+      let v = 0; for (let b = 0; b < 60; b++) { const val = horizontal ? g[a * 60 + b] : g[b * 60 + a]; v += (val - m) * (val - m); }
+      out.push(Math.sqrt(v / 60));
+    }
+    return out;
+  };
+  const extent = (arr) => { let f = -1, l = -1; arr.forEach((v, i) => { if (v > 14) { if (f < 0) f = i; l = i; } }); return f < 0 ? 0 : (l - f + 1) / 60; };
+  return Math.min(extent(lineTex(true)), extent(lineTex(false)));
+}
+let dupArm = null; // {pos, other, until} -- duplicate-guard override window
+/* Store a finished capture for the current step (shared by the camera
+   and the file picker). Returns false when the duplicate guard held
+   the capture: the first attempt only warns, a second attempt within
+   the window forces it through, so the guard can never dead-end. */
+function commitCapture(cv) {
+  const pos = CAP_STEPS[capStep].pos;
+  const sig = captureSigOf(cv);
+  for (const k of Object.keys(captures)) {
+    if (k === pos || !captures[k] || !capSigs[k]) continue;
+    if (sigMAD(sig, capSigs[k]) < 4) {
+      if (!dupArm || dupArm.pos !== pos || dupArm.other !== k || Date.now() > dupArm.until) {
+        dupArm = { pos, other: k, until: Date.now() + 6000 };
+        capNote = `⚠ この写真は、すでに取り込んだ「${POSFACE_LABEL[k].split('（')[0]}」の写真とほぼ同じです。同じ面の写真を2つの面に使うと正しく読めません。別の面の写真のはずなら、もう一度取り込むとそのまま使います。`;
+        updateCapUI();
+        return false;
+      }
+    }
+  }
+  dupArm = null;
+  const wasRetake = !!captures[pos];
+  captures[pos] = cv; capSigs[pos] = sig;
+  saveCaptures();
+  capNote = wasRetake ? POSFACE_LABEL[pos].split('（')[0] + 'を撮り直しました。' : '';
+  const cov = faceCoverage(cv);
+  if (cov > 0 && cov < 0.8) capNote = (capNote ? capNote + ' ' : '') + `⚠ 面が小さく写っているようです（枠の約${Math.round(cov * 100)}%）。小さいと読み取り精度が大きく落ちます。近づいて撮り直すのがおすすめです。`;
+  capPicked = false;
+  const nxt = CAP_STEPS.findIndex(s => !captures[s.pos]);
+  if (nxt >= 0) capStep = nxt;
+  updateCapUI();
+  return true;
+}
+/* Sharpness of a capture (variance of a 4-neighbour Laplacian): the
+   tap that fires a shot also shakes the phone, and at night the
+   shutter is slow, so a single grabbed frame is often the blurriest. */
+function frameSharpness(cv) {
+  const x = cv.getContext('2d'); const d = x.getImageData(0, 0, 300, 300).data;
+  const g = new Float32Array(300 * 300);
+  for (let i = 0; i < g.length; i++) g[i] = (d[i * 4] + d[i * 4 + 1] + d[i * 4 + 2]) / 3;
+  const lap = new Float32Array(298 * 298);
+  let m = 0;
+  for (let yy = 1; yy < 299; yy++) for (let xx = 1; xx < 299; xx++) {
+    const v = 4 * g[yy * 300 + xx] - g[yy * 300 + xx - 1] - g[yy * 300 + xx + 1] - g[(yy - 1) * 300 + xx] - g[(yy + 1) * 300 + xx];
+    lap[(yy - 1) * 298 + (xx - 1)] = v; m += v;
+  }
+  const mean = m / lap.length;
+  let va = 0; for (let i = 0; i < lap.length; i++) va += (lap[i] - mean) * (lap[i] - mean);
+  return va / lap.length;
+}
+async function captureSharpest(v) {
+  let best = captureFrom(v, v.videoWidth, v.videoHeight), bestS = frameSharpness(best);
+  for (let i = 0; i < 2; i++) {
+    await waitMs(140);
+    if (!stream || v.paused) break;
+    const cv = captureFrom(v, v.videoWidth, v.videoHeight);
+    const s = frameSharpness(cv);
+    if (s > bestS) { best = cv; bestS = s; }
+  }
+  return best;
 }
 let shooting = false;
 $('#btnShot').addEventListener('click', async () => {
@@ -1352,17 +1527,11 @@ $('#btnShot').addEventListener('click', async () => {
         return;
       }
     }
-    const wasRetake = !!captures[pos];
-    if (stream && v.videoWidth) captures[pos] = captureFrom(v, v.videoWidth, v.videoHeight);
-    else if (loadedImage) captures[pos] = captureFrom(loadedImage, loadedImage.naturalWidth, loadedImage.naturalHeight);
+    let cv = null;
+    if (stream && v.videoWidth) cv = await captureSharpest(v);
+    else if (loadedImage) cv = captureFrom(loadedImage, loadedImage.naturalWidth, loadedImage.naturalHeight);
     else return;
-    saveCaptures();
-    capNote = wasRetake ? POSFACE_LABEL[pos].split('（')[0] + 'を撮り直しました。' : '';
-    capPicked = false;
-    // advance to next uncaptured
-    const nxt = CAP_STEPS.findIndex(s => !captures[s.pos]);
-    if (nxt >= 0) capStep = nxt;
-    updateCapUI();
+    commitCapture(cv);
   } finally { shooting = false; }
 });
 $('#btnFile').addEventListener('click', () => $('#fileInput').click());
@@ -1389,7 +1558,8 @@ $('#btnCapReset').addEventListener('click', () => {
     return;
   }
   disarmCapReset();
-  for (const k of Object.keys(captures)) { delete captures[k]; delete captureSrc[k]; }
+  for (const k of Object.keys(captures)) { delete captures[k]; delete captureSrc[k]; delete capSigs[k]; }
+  dupArm = null; filePreviewHold = false;
   try { localStorage.removeItem(LS_CAP); localStorage.removeItem(LS_CELLS); } catch (e) {}
   capStep = 0; capNote = ''; capPicked = false;
   anaFinished = false; if (typeof updateAnaBar === 'function') updateAnaBar();
@@ -1415,7 +1585,19 @@ $('#fileInput').addEventListener('change', (e) => {
   if (loadedURL) { URL.revokeObjectURL(loadedURL); loadedURL = null; }
   loadedURL = URL.createObjectURL(f);
   const img = new Image();
-  img.onload = () => { loadedImage = img; stopCamera(); const ci = $('#camImg'); ci.src = img.src; ci.classList.remove('hidden'); $('#camVideo').classList.add('hidden'); $('#camHint').classList.add('hidden'); };
+  img.onload = () => {
+    loadedImage = img; stopCamera();
+    const ci = $('#camImg'); ci.src = img.src; ci.classList.remove('hidden'); $('#camVideo').classList.add('hidden'); $('#camHint').classList.add('hidden');
+    // A picked file is a finished photo: take it into the current step
+    // right away (user request 2026-11-18 -- having to press the shoot
+    // button after picking was a wasted, confusing extra step). During
+    // an analysis the capture set must stay stable, so then the image
+    // is only previewed, as before.
+    if (!analysing && !shooting) {
+      const cv = captureFrom(img, img.naturalWidth, img.naturalHeight);
+      if (commitCapture(cv)) { loadedImage = null; filePreviewHold = true; }
+    }
+  };
   img.onerror = () => {
     if (loadedURL) { URL.revokeObjectURL(loadedURL); loadedURL = null; }
     const h = $('#camHint');
@@ -1657,12 +1839,23 @@ async function estimateAlign(cap) {
   // tilt6 unchanged at 108/108. The vote costs more on hard faces; the
   // identity early-exit still keeps well-framed faces under a second.
   const bestPerAngle = ANGS.map(() => -1);
+  const bestArgPerAngle = ANGS.map(() => null);
+  // Size range widened down to 156 (Round 9, 2026-11-18): the old floor
+  // (228 in the vote, 220 in the fine search) made any photo whose face
+  // fills less than ~73% of the frame UNREADABLE -- measured on the
+  // gold4 set: face at 70% -> 23/54, at 55% -> 7/54, with the user's
+  // exact failure signature (dozens of flags, dozens of swaps). Camera
+  // app photos have no guide frame, so small / off-centre faces are the
+  // normal case there. The vote's winning (size, offset) per angle is
+  // now also kept and handed to the fine search as a seed, because the
+  // fine search's own centred grid only reaches offsets of about
+  // +-32 px and could never reach a far-off-centre face at all.
   for (let ai = 0; ai < ANGS.length; ai++) {
-    for (const size of [300, 276, 252, 228]) {
+    for (const size of [300, 276, 252, 228, 204, 180, 156]) {
       for (const dx of [-36, -18, 0, 18, 36]) for (const dy of [-36, -18, 0, 18, 36]) {
         const ox = (300 - size) / 2 + dx, oy = (300 - size) / 2 + dy;
         const sc = await S(caps[ai], ox, oy, size, FOUR, true);
-        if (sc > bestPerAngle[ai]) bestPerAngle[ai] = sc;
+        if (sc > bestPerAngle[ai]) { bestPerAngle[ai] = sc; bestArgPerAngle[ai] = { ox, oy, size }; }
       }
     }
   }
@@ -1677,17 +1870,62 @@ async function estimateAlign(cap) {
   const voteOrder = ANGS.map((a, ai) => ai).sort((x, y) => bestPerAngle[y] - bestPerAngle[x]);
   const searchOrder = voteOrder.slice(0, 2);
   if (!searchOrder.includes(ZERO)) searchOrder.push(ZERO);
+  // Flat-vote expansion (Round 9 fix, 2026-11-18): the vote is a 4-cell
+  // proxy and can be flat across ALL angles (measured on a loose real
+  // photo: every angle within 0.065, the true 9 degrees ranked #2 with
+  // the old vote sizes but #5 once small sizes joined the vote -- same
+  // score, reshuffled by noise). A hard top-2 cutoff then never
+  // fine-searches the true angle and the full score cannot adjudicate
+  // (that photo's read fell 7/9 -> 5/9). When the vote cannot separate
+  // the angles, let the full score choose: also fine-search every angle
+  // within 0.03 of the top vote score, capped at 6 searched angles.
+  for (const ai of voteOrder) {
+    if (searchOrder.length >= 6) break;
+    if (!searchOrder.includes(ai) && bestPerAngle[voteOrder[0]] - bestPerAngle[ai] <= 0.03) searchOrder.push(ai);
+  }
+  // The vote grid is coarse (offsets every 18 px), so its winner can sit
+  // ~9 px off the true alignment -- just beyond the fine search's
+  // hill-climb reach from the seed (measured 2026-11-18: an 85%-size
+  // face offset by (+36,-24) px stayed at 22/54). Hill-climb each
+  // searched angle's seed on the cheap 4-cell score first (steps 6 then
+  // 3, plus a size probe), so the fine search starts within a few px.
+  for (const ai of searchOrder) {
+    const seed0 = bestArgPerAngle[ai];
+    if (!seed0) continue;
+    let cur = { ...seed0, sc: bestPerAngle[ai] };
+    for (const step of [6, 3]) {
+      let moved = true;
+      while (moved) {
+        moved = false;
+        for (let dx = -step; dx <= step; dx += step) for (let dy = -step; dy <= step; dy += step) {
+          if (!dx && !dy) continue;
+          const sc = await S(caps[ai], cur.ox + dx, cur.oy + dy, cur.size, FOUR, true);
+          if (sc > cur.sc) { cur = { ox: cur.ox + dx, oy: cur.oy + dy, size: cur.size, sc }; moved = true; }
+        }
+      }
+      for (const ds of [-6, 6]) {
+        const size = cur.size + ds;
+        if (size < 150 || size > 306) continue;
+        const sc = await S(caps[ai], cur.ox - ds / 2, cur.oy - ds / 2, size, FOUR, true);
+        if (sc > cur.sc) cur = { ox: cur.ox - ds / 2, oy: cur.oy - ds / 2, size, sc };
+      }
+    }
+    bestArgPerAngle[ai] = { ox: cur.ox, oy: cur.oy, size: cur.size };
+  }
   // fine shift/scale search on one canvas (the v4-proven grid), with a
   // size walk added to the refine so an off-grid seed size still lands.
-  const fineSearch = async (cv) => {
+  const fineSearch = async (cv, seed) => {
     const idCv = await S(cv, 0, 0, 300);
     const coarse = [];
-    for (const size of [300, 288, 276, 264, 252, 240, 228]) {
+    for (const size of [300, 288, 276, 264, 252, 240, 228, 216, 204, 192, 180, 168, 156]) {
       for (const dx of [-24, -12, 0, 12, 24]) for (const dy of [-24, -12, 0, 12, 24]) {
         const ox = (300 - size) / 2 + dx, oy = (300 - size) / 2 + dy;
         coarse.push({ ox, oy, size, sc: await S(cv, ox, oy, size, FOUR, true) });
       }
     }
+    // The vote's winner for this angle may sit far outside the centred
+    // grid (small and/or off-centre face); seed it as an extra basin.
+    if (seed) coarse.push({ ox: seed.ox, oy: seed.oy, size: seed.size, sc: await S(cv, seed.ox, seed.oy, seed.size, FOUR, true) });
     coarse.sort((a, b) => b.sc - a.sc);
     const refine = async (cand) => {
       let cur = { ox: cand.ox, oy: cand.oy, size: cand.size, sc: await S(cv, cand.ox, cand.oy, cand.size, SIX, true) };
@@ -1701,7 +1939,7 @@ async function estimateAlign(cap) {
       await walk(3, 6); await walk(1, 2);
       for (const ds of [-12, -6, 6, 12]) {
         const size = cur.size + ds;
-        if (size < 220 || size > 306) continue;
+        if (size < 150 || size > 306) continue;
         const sc = await S(cv, cur.ox - ds / 2, cur.oy - ds / 2, size, SIX, true);
         if (sc > cur.sc) { cur = { ox: cur.ox - ds / 2, oy: cur.oy - ds / 2, size, sc }; await walk(1, 2); }
       }
@@ -1721,7 +1959,7 @@ async function estimateAlign(cap) {
     }
     for (const ds of [-6, 6]) {
       const size = best.size + ds;
-      if (size < 220 || size > 306) continue;
+      if (size < 150 || size > 306) continue;
       const sc = await S(cv, best.ox - ds / 2, best.oy - ds / 2, size);
       if (sc > best.sc) best = { ox: best.ox - ds / 2, oy: best.oy - ds / 2, size, sc };
     }
@@ -1729,7 +1967,7 @@ async function estimateAlign(cap) {
   };
   let best = null;
   for (const ai of searchOrder) {
-    const r = await fineSearch(caps[ai]);
+    const r = await fineSearch(caps[ai], bestArgPerAngle[ai]);
     if (!best || r.sc > best.sc) best = { ai, ...r };
     if (best.sc >= 7.3) break; // decisive peak found
   }
@@ -1783,7 +2021,7 @@ async function grabWakeLock() {
 $('#btnAnalyse').addEventListener('click', async () => {
   const btn = $('#btnAnalyse');
   btn.disabled = true; btn.textContent = '読み取り中…'; btn.classList.add('busy');
-  $('#btnShot').disabled = true; $('#btnCapReset').disabled = true; // keep the capture set stable during analysis
+  $('#btnShot').disabled = true; $('#btnCapReset').disabled = true; $('#btnFile').disabled = true; // keep the capture set stable during analysis
   analysing = true;
   anaDoneCount = 0; anaFinished = false; updateAnaBar();
   // let the label actually paint before any heavy work starts (user
@@ -1797,6 +2035,11 @@ $('#btnAnalyse').addEventListener('click', async () => {
     await analyseCaptures();
     const pn = $('#photoNote');
     if (lastPhotoNotes.length) { pn.style.display = 'block'; pn.textContent = lastPhotoNotes.join(' '); } else pn.style.display = 'none';
+    const dupN = photoReview.dupCells().size;
+    if (dupN) {
+      pn.style.display = 'block';
+      pn.textContent = (pn.textContent ? pn.textContent + ' ' : '') + `⚠ 同じピースが重複しているマスが ${dupN} 個あります（赤い「重複」表示のマス）。そのマスは読み取りが間違っているので、必ず実物と見比べて「手で直す」で直してください。`;
+    }
     $('#photoReview').classList.remove('hidden');
     $('#photoReview').scrollIntoView({ behavior: 'smooth' });
     anaFinished = true; updateAnaBar();
@@ -1810,7 +2053,7 @@ $('#btnAnalyse').addEventListener('click', async () => {
     analysing = false;
     if (wakeLock) { try { wakeLock.release(); } catch (e) {} wakeLock = null; }
     btn.disabled = false; btn.textContent = '読み取り結果を確認する'; btn.classList.remove('busy');
-    $('#btnShot').disabled = false; $('#btnCapReset').disabled = false;
+    $('#btnShot').disabled = false; $('#btnCapReset').disabled = false; $('#btnFile').disabled = false;
     updateAnaBar();
   }
 });
@@ -1830,6 +2073,25 @@ function rotateFaceAssign(R, pos, g) {
     R.assign[pos][r][c] = a ? { ...a, rot: (a.rot + g) % 4 } : null;
   }
   R.centreRot[pos] = (R.centreRot[pos] + g) % 4;
+}
+/* Manual whole-face rotation from the review (user request 2026-11-18):
+   when a face's orientation is wrong, re-picking all 8 stickers by hand
+   was the only fix -- a dead end. Rotating the review face applies the
+   same transform as the automatic repair, candidate lists included, so
+   the picker stays consistent with the grid afterwards. */
+function rotateReviewFace(R, pos) {
+  rotateFaceAssign(R, pos, 1);
+  const grid = R.cand[pos];
+  if (grid) {
+    const old = grid.map(row => row.slice());
+    for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) {
+      const [sr, sc] = gridSrcIdx(r, c, 1);
+      const list = old[sr][sc];
+      grid[r][c] = list;
+      if (list) for (const e of list) e.rot = (e.rot + 1) % 4;
+    }
+  }
+  R.render();
 }
 /* Count corner/edge slots whose facelets form a real cubie (0..20).
    validateFacelets aggregates its errors, so it cannot guide a search;
@@ -1910,7 +2172,7 @@ async function analyseCaptures() {
             { ox: al.ox + 12, oy: al.oy, size: al.size }, { ox: al.ox - 12, oy: al.oy, size: al.size },
             { ox: al.ox, oy: al.oy + 12, size: al.size }, { ox: al.ox, oy: al.oy - 12, size: al.size },
             { ox: al.ox - 6, oy: al.oy - 6, size: Math.min(306, al.size + 12) },
-            { ox: al.ox + 6, oy: al.oy + 6, size: Math.max(220, al.size - 12) },
+            { ox: al.ox + 6, oy: al.oy + 6, size: Math.max(140, al.size - 12) },
           ];
           for (const v of variants) {
             const m2 = scoreCellAt(v.ox, v.oy, v.size, r, c);
@@ -1930,7 +2192,7 @@ async function analyseCaptures() {
         const t2 = [...merged.values()].sort((a, b) => b.score - a.score);
         if (t2.length > 1 && (t2[0].score < 0.66 || (t2[0].score - t2[1].score) < 0.05)) {
           for (const ds of [-24, 0, 24]) {
-            const wsize = Math.max(220, Math.min(306, al.size + ds));
+            const wsize = Math.max(140, Math.min(306, al.size + ds));
             for (const dx of [-36, -24, -12, 0, 12, 24, 36]) for (const dy of [-36, -24, -12, 0, 12, 24, 36]) {
               const m2 = scoreCellAt(al.ox + dx - ds / 2, al.oy + dy - ds / 2, wsize, r, c);
               for (const [key, e2] of m2) { const e = merged.get(key); if (e2.score > e.score) merged.set(key, e2); }
@@ -2182,12 +2444,14 @@ function restoreBottom(R) {
 }
 $('#btnManualFix').addEventListener('click', () => {
   const R = photoReview;
+  const dup = R.dupCells();
   let target = null;
-  for (const kind of ['empty', 'flag', 'auto']) {
+  for (const kind of ['dup', 'empty', 'flag', 'auto']) {
     for (const pos of NET_LAYOUT.filter(Boolean)) {
       for (let r = 0; r < 3 && !target; r++) for (let c = 0; c < 3 && !target; c++) {
         const a = R.assign[pos][r][c];
-        if (kind === 'empty' && !a) target = { pos, r, c };
+        if (kind === 'dup' && a && dup.has(pos + ',' + r + ',' + c)) target = { pos, r, c };
+        else if (kind === 'empty' && !a) target = { pos, r, c };
         else if (kind === 'flag' && a && a.flag) target = { pos, r, c };
         else if (kind === 'auto' && a && a.auto) target = { pos, r, c };
       }
@@ -2215,7 +2479,7 @@ $('#btnPhotoApply').addEventListener('click', (e) => { anaFinished = false; upda
       await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = o[pos]; });
       const cv = document.createElement('canvas'); cv.width = cv.height = 300;
       cv.getContext('2d').drawImage(img, 0, 0, 300, 300);
-      captures[pos] = cv; captureSrc[pos] = o[pos]; n++;
+      captures[pos] = cv; captureSrc[pos] = o[pos]; capSigs[pos] = captureSigOf(cv); n++;
     }
     if (n) { capNote = `前回の写真（${n}面）を復元しました。このまま「読み取り結果を確認する」を押せます。`; updateCapUI(); }
   } catch (e) {}
